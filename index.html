@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      if (window.location.protocol === 'file:') {
+        window.location.replace('http://localhost:3000');
+      }
+      window.addEventListener('error', function(e) {
+        var root = document.getElementById('root');
+        if (root && (!root.innerHTML || root.innerHTML.indexOf('Carregando') !== -1)) {
+          root.innerHTML = '<div style="padding:24px;font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.1);border:1px solid #fee2e2;">' +
+            '<h3 style="color:#ef4444;margin-top:0;">Falha ao carregar o sistema:</h3>' +
+            '<p style="color:#334155;font-size:14px;">' + (e.message || 'Erro desconhecido ao executar script') + '</p>' +
+            '<p style="color:#64748b;font-size:12px;">Arquivo: ' + (e.filename || '') + ' Linha: ' + (e.lineno || '') + '</p>' +
+            '<button onclick="window.location.reload()" style="background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:bold;cursor:pointer;">Tentar Novamente</button>' +
+            '</div>';
+        }
+      });
+    </script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231e3a8a'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SAM | Sistema de Administração Musical - CCB</title>
+
+    <!-- Tailwind CSS: tenta carregar localmente primeiro, depois CDN -->
+    <script src="/tailwind.min.js" onerror="this.onerror=null;this.src='https://cdn.tailwindcss.com';"></script>
+    <script>
+      if (window.tailwind) {
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                sam: {
+                  50: '#f0f7ff',
+                  100: '#e0effe',
+                  200: '#bae0fd',
+                  500: '#1d72b8',
+                  600: '#005ea5',
+                  700: '#0b4a78',
+                  800: '#08385a',
+                  900: '#062942',
+                }
+              }
+            }
+          }
+        };
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-50 text-slate-800 antialiased font-['Plus_Jakarta_Sans',sans-serif]">
+    <div id="root">
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;color:#1e293b;">
+        <div style="width:48px;height:48px;border:4px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:samSpin 1s linear infinite;"></div>
+        <h2 style="margin-top:20px;font-size:18px;font-weight:700;letter-spacing:-0.5px;">Carregando SAM Musical CCB...</h2>
+        <p style="font-size:13px;color:#64748b;margin-top:6px;">Vila Rui Barbosa • Jundiaí - SP</p>
+        <style>@keyframes samSpin{to{transform:rotate(360deg)}}</style>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "nome": "Administrador (ADM)",
+      "username": "encarregado",
+      "email": "alfasiera.engenharia@gmail.com",
+      "role": "admin",
+      "alunoIds": [],
+      "alunoId": null,
+      "status": "aprovado",
+      "ativo": true,
+      "passwordHash": "05f745ebb4a3110690ba3dba613e6f60:00a552a7c49cf5847ca6525b97eb1b7f852c5b8b044992bae721cbbfac5b18efceb3b1e74d04626681f6248d20d468bd747cb90f27d1fa3ca01cfad12ce4c80f",
+      "createdAt": "2026-11-11T02:50:31.902Z"
+    },
+    {
+      "id": 2,
+      "nome": "Instrutor GEM",
+      "username": "instrutor",
+      "email": "instrutor@ccb.local",
+      "role": "instrutor",
+      "alunoId": null,
+      "ativo": true,
+      "passwordHash": "3b594e73d962875333ed91eea4caf928:d4a483299894fa0d8f0772783e96d46830ab84ef76a16910291dfc21961b29137409ad73d4954a52c3b6b35bf9ff3fcd921144963ec6669e79b654494cbe232f",
+      "createdAt": "2026-11-11T02:50:31.927Z"
+    },
+    {
+      "id": 3,
+      "nome": "Davi Evangelista (Exemplo)",
+      "username": "candidato",
+      "email": "candidato@ccb.local",
+      "role": "candidato",
+      "alunoId": 1,
+      "ativo": true,
+      "passwordHash": "e6d35b2e21ab0ab6305a4e5e9414ef7e:d9adaa7442aacf95b53d1989c57f29fc620f867e24ce6a34cb9726eff9ec041315f2239dac42c74efa1eda1c4cc0305bf70327e6fd029dbd88013651a7e4a10e",
+      "createdAt": "2026-11-11T02:50:31.954Z"
+    }
+  ]
+}

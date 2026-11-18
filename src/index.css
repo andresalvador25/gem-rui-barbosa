@@ -1,0 +1,122 @@
+.print-only {
+  display: none;
+}
+
+@page {
+  margin: 10mm 12mm;
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+  }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-flex {
+    display: flex !important;
+  }
+
+  .print-visible {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  .print-no-sticky {
+    position: static !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .card-print {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .print-grid-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .print-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .print-relacao-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1.55fr 1.35fr !important;
+    gap: 10px !important;
+    align-items: start !important;
+  }
+
+  .print-compact-table {
+    font-size: 8px !important;
+  }
+
+  .print-compact-table th,
+  .print-compact-table td {
+    padding: 2px 2px !important;
+    min-width: 0 !important;
+  }
+
+  .print-date-vertical {
+    writing-mode: vertical-rl !important;
+    transform: rotate(180deg) !important;
+    height: 36px !important;
+    white-space: nowrap !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    padding: 2px 1px !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
