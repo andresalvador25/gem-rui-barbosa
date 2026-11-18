@@ -240,7 +240,7 @@ function readLocalUsersFile() {
           id: 1,
           nome: 'Administrador (ADM)',
           username: 'encarregado',
-          email: 'adm@sammusical.com',
+          email: 'andresalvador4@gmail.com',
           role: 'admin',
           alunoIds: [],
           alunoId: null,
