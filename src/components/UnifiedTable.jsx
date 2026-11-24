@@ -571,17 +571,130 @@ export default function UnifiedTable({
       </div>
 
       {/* Contagem */}
-      <div className="bg-slate-50/80 px-5 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+      <div className="bg-slate-50/80 px-4 sm:px-5 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
         <span>
           Mostrando <strong>{filteredAndSorted.length}</strong> de <strong>{listaConsolidada.length}</strong> integrantes e candidatos
         </span>
-        <span className="text-slate-400 text-[11px]">
+        <span className="text-slate-400 text-[11px] hidden md:inline">
           Clique nos cabeçalhos com setas (▲▼) para ordenar qualquer coluna
         </span>
       </div>
 
-      {/* Tabela com as Colunas Exatas da Planilha */}
-      <div className="overflow-x-auto">
+      {/* VISÃO EM CARTÕES OTIMIZADA PARA CELULAR (md:hidden) */}
+      <div className="md:hidden divide-y divide-slate-100 print:hidden">
+        {filteredAndSorted.map(item => {
+          const alunoGem = item.alunoGemRef || getAlunoGem(item);
+          const rawNivel = item.nivel || nivelFromFlags(item);
+          const nivelAtual = rawNivel === 'RJM OFICIALIZADO' ? 'RJM / OFICIALIZADO' : rawNivel;
+
+          let nivelBadgeColor = 'bg-slate-100 text-slate-700 border-slate-300';
+          if (nivelAtual === 'OFICIALIZADO') nivelBadgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+          else if (nivelAtual === 'RJM / OFICIALIZADO') nivelBadgeColor = 'bg-indigo-50 text-indigo-800 border-indigo-300';
+          else if (nivelAtual.includes('CULTO')) nivelBadgeColor = 'bg-teal-50 text-teal-800 border-teal-300';
+          else if (nivelAtual.includes('RJM')) nivelBadgeColor = 'bg-amber-50 text-amber-800 border-amber-300';
+          else if (nivelAtual === 'ENSAIO') nivelBadgeColor = 'bg-blue-50 text-blue-800 border-blue-300';
+          else if (nivelAtual === 'CANDIDATO(A)') nivelBadgeColor = 'bg-purple-50 text-purple-800 border-purple-300';
+
+          return (
+            <div key={item.id} className="p-3.5 space-y-2.5 hover:bg-slate-50/80 transition">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-black text-slate-900 text-sm leading-snug">
+                      {item.nome}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${nivelBadgeColor}`}>
+                      {nivelAtual}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-slate-600 font-bold">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        item.naipe === 'Cordas'
+                          ? 'bg-blue-500'
+                          : item.naipe === 'Madeiras'
+                          ? 'bg-emerald-500'
+                          : item.naipe === 'Metais'
+                          ? 'bg-amber-500'
+                          : 'bg-purple-500'
+                      }`}
+                    />
+                    <span>{item.instrumento}</span>
+                    {item.telefone && (
+                      <a
+                        href={`tel:${item.telefone}`}
+                        className="text-blue-600 font-semibold flex items-center gap-1 ml-1"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{item.telefone}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Pílulas de Atuação + Ações rápidas para Toque no Celular */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-1">
+                  {item.ensaios && (
+                    <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                      Ensaio
+                    </span>
+                  )}
+                  {item.rjm && (
+                    <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200">
+                      RJM
+                    </span>
+                  )}
+                  {item.meiaHora && (
+                    <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
+                      Meia Hora
+                    </span>
+                  )}
+                  {item.cultosOficiais && (
+                    <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded border border-teal-200">
+                      Cultos
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {alunoGem && onOpenAlunoFicha && (
+                    <button
+                      onClick={() => onOpenAlunoFicha(alunoGem)}
+                      className="px-2.5 py-1.5 rounded-lg bg-purple-100 text-purple-800 font-extrabold text-[11px] flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      <span>Ficha</span>
+                    </button>
+                  )}
+                  {!readOnly && onEditClick && (
+                    <button
+                      onClick={() => onEditClick(item)}
+                      className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {!readOnly && onDeleteClick && (
+                    <button
+                      onClick={() => onDeleteClick(item)}
+                      className="p-2 rounded-lg bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tabela com as Colunas Exatas da Planilha (Desktop e Impressão) */}
+      <div className="hidden md:block print:block overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 text-xs uppercase tracking-wider font-bold">
