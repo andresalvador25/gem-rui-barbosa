@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronDown,
   BarChart3,
   FileSpreadsheet,
   Piano,
@@ -72,8 +73,17 @@ export default function App() {
   const [isPerfisModalOpen, setIsPerfisModalOpen] = useState(false);
   const [pendentesCount, setPendentesCount] = useState(0);
 
-  // Menu Lateral no Celular (Drawer)
+  // Menu Lateral no Celular (Drawer) e Grupos Expansíveis da Barra Lateral
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState({
+    corpo: true,
+    gem: true,
+    gerenciamento: true
+  });
+
+  const toggleGroup = (grp) => {
+    setExpandedGroups(prev => ({ ...prev, [grp]: !prev[grp] }));
+  };
 
   // PWA Install Prompt (Celular e PC)
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
@@ -420,247 +430,264 @@ export default function App() {
     return 'Relação Aula Musical';
   };
 
-  // Conteúdo reutilizável do Menu Lateral (usado na Sidebar Desktop e no Drawer Mobile)
+  // Conteúdo reutilizável do Menu Lateral (Lista única rolável sem botões fixos)
   const renderSidebarContent = () => (
-    <div className="flex flex-col h-full bg-gradient-to-b from-slate-950 via-blue-950 to-slate-900 text-white select-none">
-      {/* Topo da Sidebar: Marca & Localidade */}
-      <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-200 shadow-inner shrink-0">
-            <Music className="w-5 h-5 text-blue-300" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base tracking-tight text-white truncate">
-                SAM MUSICAL
-              </span>
-              <span className="bg-blue-800 text-blue-200 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-blue-700 shrink-0">
-                CCB
-              </span>
+    <div className="flex flex-col h-full bg-slate-950 text-slate-200 select-none border-r border-slate-800/80">
+      {/* Lista Única Rolável da Barra Lateral (Marca + Abas + Sub-abas + Gerenciamento) */}
+      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5">
+        {/* Cabeçalho da Marca dentro do fluxo da barra lateral */}
+        <div className="px-2 pb-3 border-b border-slate-800/80 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shrink-0">
+              <Music className="w-5 h-5" />
             </div>
-            <p className="text-[11px] text-blue-200/80 font-medium truncate flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-              {data.config?.localidade || 'Vila Rui Barbosa'}
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-sm tracking-tight text-white truncate">
+                  SAM MUSICAL
+                </span>
+                <span className="bg-blue-500/20 text-blue-300 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-blue-400/30 shrink-0">
+                  CCB
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                {data.config?.localidade || 'Vila Rui Barbosa'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Botão fechar no mobile */}
-        <button
-          onClick={() => setMobileMenuOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Botão de Cadastro Rápido */}
-      {permissoes.canEditCorpoMusical && !permissoes.isCandidato && (
-        <div className="px-3.5 pt-3.5">
           <button
-            onClick={() => {
-              setItemToEdit(null);
-              setIsIntegranteModalOpen(true);
-              setMobileMenuOpen(false);
-            }}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-2.5 px-3 rounded-xl shadow-md shadow-blue-600/30 transition flex items-center justify-center gap-2"
+            onClick={() => setMobileMenuOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>+ Novo Integrante / Aluno</span>
+            <X className="w-5 h-5" />
           </button>
         </div>
-      )}
 
-      {/* Navegação Lateral: Abas Principais e Sub-abas */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        {/* 1. CORPO MUSICAL */}
         {!permissoes.isCandidato && permissoes.canViewCorpoMusical && (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <button
-              onClick={() => navigateTo('corpo', subTabCorpo)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                mainTab === 'corpo'
-                  ? 'bg-blue-600/25 text-blue-200 border border-blue-400/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
+              onClick={() => toggleGroup('corpo')}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-900 transition"
             >
               <span className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-400" />
                 <span>1. Corpo Musical</span>
               </span>
-              <span className="bg-blue-900/80 text-blue-200 text-[10px] px-2 py-0.5 rounded-full border border-blue-700/60">
-                {totalUnificadoCount}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="bg-blue-500/15 text-blue-300 text-[10px] px-2 py-0.5 rounded-full border border-blue-500/30">
+                  {totalUnificadoCount}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
+                    expandedGroups.corpo ? 'rotate-0' : '-rotate-90'
+                  }`}
+                />
+              </div>
             </button>
 
-            {/* Sub-abas do Corpo Musical */}
-            <div className="pl-3 space-y-1 border-l-2 border-blue-800/60 ml-3">
-              {[
-                { id: 'integrantes', label: 'Lista de Integrantes', emoji: '📋' },
-                { id: 'uniao', label: 'Painel Geral & União GEM', emoji: '🏛️' },
-                { id: 'relacao', label: 'Relação Analítica', emoji: '📑' },
-                { id: 'moo_graficos', label: 'Gráficos MOO & Vozes', emoji: '📊' }
-              ].map(item => {
-                const active = mainTab === 'corpo' && subTabCorpo === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => navigateTo('corpo', item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      active
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-300 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span>{item.emoji}</span>
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {active && <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-80" />}
-                  </button>
-                );
-              })}
-            </div>
+            {expandedGroups.corpo && (
+              <div className="pl-2.5 ml-2.5 border-l border-slate-800 space-y-1 pt-0.5">
+                {[
+                  { id: 'integrantes', label: 'Lista de Integrantes', emoji: '📋' },
+                  { id: 'uniao', label: 'Painel Geral & União GEM', emoji: '🏛️' },
+                  { id: 'relacao', label: 'Relação Analítica', emoji: '📑' },
+                  { id: 'moo_graficos', label: 'Gráficos MOO & Vozes', emoji: '📊' }
+                ].map(item => {
+                  const active = mainTab === 'corpo' && subTabCorpo === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => navigateTo('corpo', item.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                        active
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5 truncate">
+                        <span className="text-sm leading-none">{item.emoji}</span>
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      {active && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
+        {/* 2. GEM & ESTUDOS */}
         {!permissoes.isCandidato && permissoes.canViewGemFull && (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <button
-              onClick={() => navigateTo('gem', subTabGem)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                mainTab === 'gem'
-                  ? 'bg-emerald-600/25 text-emerald-200 border border-emerald-400/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
+              onClick={() => toggleGroup('gem')}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-900 transition"
             >
               <span className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-emerald-400" />
                 <span>2. GEM & Estudos</span>
               </span>
-              <span className="bg-emerald-900/80 text-emerald-200 text-[10px] px-2 py-0.5 rounded-full border border-emerald-700/60">
-                {alunosGem.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="bg-emerald-500/15 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  {alunosGem.length}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
+                    expandedGroups.gem ? 'rotate-0' : '-rotate-90'
+                  }`}
+                />
+              </div>
             </button>
 
-            {/* Sub-abas do GEM */}
-            <div className="pl-3 space-y-1 border-l-2 border-emerald-800/60 ml-3">
-              {[
-                { id: 'fichas', label: `Fichas & Histórico (${alunosGem.length})`, emoji: '👤' },
-                { id: 'presenca', label: 'Presença & Chamada', emoji: '📅' },
-                { id: 'organistas', label: 'Organistas GEM', emoji: '🎹' },
-                { id: 'aulas', label: 'Relação Aula Musical', emoji: '🎼' }
-              ].map(item => {
-                const active = mainTab === 'gem' && subTabGem === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => navigateTo('gem', item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      active
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'text-slate-300 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span>{item.emoji}</span>
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {active && <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-80" />}
-                  </button>
-                );
-              })}
-            </div>
+            {expandedGroups.gem && (
+              <div className="pl-2.5 ml-2.5 border-l border-slate-800 space-y-1 pt-0.5">
+                {[
+                  { id: 'fichas', label: `Fichas & Histórico (${alunosGem.length})`, emoji: '👤' },
+                  { id: 'presenca', label: 'Presença & Chamada', emoji: '📅' },
+                  { id: 'organistas', label: 'Organistas GEM', emoji: '🎹' },
+                  { id: 'aulas', label: 'Relação Aula Musical', emoji: '🎼' }
+                ].map(item => {
+                  const active = mainTab === 'gem' && subTabGem === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => navigateTo('gem', item.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                        active
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5 truncate">
+                        <span className="text-sm leading-none">{item.emoji}</span>
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      {active && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
-      </nav>
 
-      {/* Rodapé da Sidebar: Ferramentas ADM & Perfil */}
-      <div className="p-3.5 border-t border-white/10 space-y-2.5 bg-slate-950/50">
-        <div className="grid grid-cols-2 gap-1.5">
-          {/* Botão Instalar App no Celular / PC */}
+        {/* 3. GERENCIAMENTO & SISTEMA (Integrado na lista da barra lateral, sem ficar fixo) */}
+        <div className="space-y-1 pt-2 border-t border-slate-800/80">
           <button
-            onClick={handleInstallApp}
-            className="col-span-2 flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 px-3 py-2 rounded-xl text-xs font-black border border-emerald-400/30 transition"
+            onClick={() => toggleGroup('gerenciamento')}
+            className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-900 transition"
           >
-            <Download className="w-4 h-4 text-emerald-300" />
-            <span>📲 Instalar App (Celular / PC)</span>
-          </button>
-
-          {permissoes.canManageUsers && (
-            <button
-              onClick={() => {
-                setIsPerfisModalOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="col-span-2 flex items-center justify-between bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-3 py-2 rounded-xl text-xs font-bold border border-amber-400/30 transition"
-            >
-              <span className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-amber-300" />
-                <span>Gestão de Acessos</span>
-              </span>
+            <span className="flex items-center gap-2">
+              <Settings className="w-4 h-4 text-amber-400" />
+              <span>3. Gerenciamento</span>
+            </span>
+            <div className="flex items-center gap-1.5">
               {pendentesCount > 0 && (
-                <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
-                  {pendentesCount} pend.
+                <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                  {pendentesCount}
                 </span>
               )}
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              window.print();
-            }}
-            className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/15 text-slate-200 py-2 px-2.5 rounded-xl text-xs font-semibold transition"
-          >
-            <Printer className="w-3.5 h-3.5 text-blue-300" />
-            <span>Imprimir</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
+                  expandedGroups.gerenciamento ? 'rotate-0' : '-rotate-90'
+                }`}
+              />
+            </div>
           </button>
 
-          {permissoes.canManageConfig ? (
-            <button
-              onClick={() => {
-                setIsConfigModalOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/15 text-slate-200 py-2 px-2.5 rounded-xl text-xs font-semibold transition"
-            >
-              <Settings className="w-3.5 h-3.5 text-blue-300" />
-              <span>Ajustes</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                loadData();
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/15 text-slate-200 py-2 px-2.5 rounded-xl text-xs font-semibold transition"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-blue-300 ${loading ? 'animate-spin' : ''}`} />
-              <span>Atualizar</span>
-            </button>
+          {expandedGroups.gerenciamento && (
+            <div className="pl-2.5 ml-2.5 border-l border-slate-800 space-y-1 pt-0.5">
+              {permissoes.canManageUsers && (
+                <button
+                  onClick={() => {
+                    setIsPerfisModalOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-amber-200 hover:text-white hover:bg-slate-900 transition"
+                >
+                  <span className="flex items-center gap-2.5 truncate">
+                    <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span className="truncate">Gestão de Acessos</span>
+                  </span>
+                  {pendentesCount > 0 && (
+                    <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {pendentesCount} pend.
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {permissoes.canManageConfig && (
+                <button
+                  onClick={() => {
+                    setIsConfigModalOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition"
+                >
+                  <Settings className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span className="truncate">Ajustes e Backup</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleInstallApp}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-slate-900 transition"
+              >
+                <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="truncate">Instalar App (Celular / PC)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  window.print();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition"
+              >
+                <Printer className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="truncate">Imprimir Página Atual</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  loadData();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition"
+              >
+                <RefreshCw className={`w-4 h-4 text-slate-400 shrink-0 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+                <span className="truncate">Sincronizar Dados</span>
+              </button>
+
+              {/* Conta Conectada + Botão Sair dentro de Gerenciamento */}
+              {currentUser && (
+                <div className="pt-2 mt-2 border-t border-slate-800/80 space-y-2 px-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border ${roleMeta.badgeClass}`}>
+                        {roleMeta.shortLabel}
+                      </span>
+                      <p className="text-xs font-bold text-white truncate mt-1">{currentUser.nome}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{currentUser.email || currentUser.username}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-white px-3 py-2 rounded-xl text-xs font-bold border border-red-500/30 transition"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sair da Conta</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
-
-        {/* Usuário Conectado + Sair */}
-        {currentUser && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
-            <div className="min-w-0">
-              <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border ${roleMeta.badgeClass}`}>
-                {roleMeta.shortLabel}
-              </span>
-              <p className="text-xs font-bold text-white truncate mt-0.5">{currentUser.nome}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sair ou trocar conta"
-              className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 px-2.5 py-1.5 rounded-xl text-xs font-bold border border-red-400/30 transition shrink-0"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sair</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -717,31 +744,16 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {permissoes.canManageUsers && (
+              {permissoes.canManageUsers && pendentesCount > 0 && (
                 <button
                   onClick={() => setIsPerfisModalOpen(true)}
                   className="relative p-2 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200"
-                  title="Gestão de Acessos"
+                  title="Solicitações de acesso pendentes"
                 >
                   <Shield className="w-4 h-4 text-amber-300" />
-                  {pendentesCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-amber-400 text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                      {pendentesCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {permissoes.canEditCorpoMusical && !permissoes.isCandidato && (
-                <button
-                  onClick={() => {
-                    setItemToEdit(null);
-                    setIsIntegranteModalOpen(true);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-2.5 py-2 rounded-xl flex items-center gap-1 shadow-xs"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Novo</span>
+                  <span className="absolute -top-1 -right-1 bg-amber-400 text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                    {pendentesCount}
+                  </span>
                 </button>
               )}
 
