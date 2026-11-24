@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Calendar, 
   Search, 
@@ -265,16 +265,24 @@ export default function Presenca2026View({ alunosGem = [], onRefresh }) {
           alunosPresenca: override.alunosPresenca || alunos
         })
       });
+      // Notifica todos os componentes e abas da atualização
+      try {
+        window.dispatchEvent(new CustomEvent('gem-data-updated'));
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('sam_musical_sync');
+          bc.postMessage({ type: 'SYNC' });
+          bc.close();
+        }
+      } catch (e) {}
     } catch (e) {}
   };
 
-  // Carrega dados da chamada salvos no servidor e mescla com localStorage
-  useEffect(() => {
-    let active = true;
+  // Carrega dados da chamada salvos no servidor e mescla com o estado local
+  const carregarChamadaServidor = useCallback(() => {
     fetch('/api/gem/chamada')
       .then(r => r.ok ? r.json() : null)
       .then(json => {
-        if (!active || !json?.chamada) return;
+        if (!json?.chamada) return;
         const ch = json.chamada;
         if (Array.isArray(ch.anosDisponiveis) && ch.anosDisponiveis.length > 0) {
           setAnosDisponiveis(prev => {
@@ -304,8 +312,8 @@ export default function Presenca2026View({ alunosGem = [], onRefresh }) {
               if (!sp) return a;
               return {
                 ...a,
-                msa: sp.msa || a.msa || '',
-                presencas: { ...(sp.presencas || {}), ...(a.presencas || {}) }
+                msa: sp.msa !== undefined ? sp.msa : (a.msa || ''),
+                presencas: { ...(a.presencas || {}), ...(sp.presencas || {}) }
               };
             });
             localStorage.setItem(`gem_presenca_${anoAtivo}_alunos`, JSON.stringify(updated));
@@ -314,8 +322,14 @@ export default function Presenca2026View({ alunosGem = [], onRefresh }) {
         }
       })
       .catch(() => {});
-    return () => { active = false; };
   }, [anoAtivo]);
+
+  useEffect(() => {
+    carregarChamadaServidor();
+    const handleSync = () => carregarChamadaServidor();
+    window.addEventListener('gem-data-updated', handleSync);
+    return () => window.removeEventListener('gem-data-updated', handleSync);
+  }, [carregarChamadaServidor]);
 
   const salvarStorageAlunos = (novosDados) => {
     const ordenados = ordenarPorNome(novosDados);

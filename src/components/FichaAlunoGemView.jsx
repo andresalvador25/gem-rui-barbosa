@@ -104,10 +104,13 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
 
   useEffect(() => {
     carregarAlunos();
-    const handleSync = () => carregarAlunos();
+    const handleSync = () => {
+      carregarAlunos();
+      if (selectedAlunoId) carregarHistorico(selectedAlunoId);
+    };
     window.addEventListener('gem-data-updated', handleSync);
     return () => window.removeEventListener('gem-data-updated', handleSync);
-  }, []);
+  }, [selectedAlunoId]);
 
   useEffect(() => {
     if (selectedAlunoId) {
@@ -159,6 +162,7 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
       });
       if (res.ok) {
         await carregarHistorico(selectedAlunoId);
+        window.dispatchEvent(new CustomEvent('gem-data-updated', { detail: itemData }));
       }
     } catch (e) {
       // Local fallback
@@ -180,6 +184,7 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
     try {
       await fetch(`/api/gem/historico/${id}`, { method: 'DELETE' });
       await carregarHistorico(selectedAlunoId);
+      window.dispatchEvent(new CustomEvent('gem-data-updated', { detail: { deletedId: id } }));
     } catch (e) {
       const updated = historico.filter(h => h.id !== id);
       setHistorico(updated);

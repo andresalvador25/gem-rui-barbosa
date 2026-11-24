@@ -136,9 +136,21 @@ export default function App() {
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Carregar dados da API
-  const loadData = async () => {
-    setLoading(true);
+  // Função utilitária para propagar sincronização global (mesma aba + outras abas/janelas)
+  const broadcastSyncUpdate = (detail = {}) => {
+    window.dispatchEvent(new CustomEvent('gem-data-updated', { detail }));
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('sam_musical_sync');
+        bc.postMessage({ type: 'SYNC', detail });
+        bc.close();
+      }
+    } catch (e) {}
+  };
+
+  // Carregar dados da API (com suporte a carregamento silencioso em segundo plano)
+  const loadData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const res = await fetch('/api/all');
       if (res.ok) {
@@ -201,7 +213,7 @@ export default function App() {
     } catch (e) {
       console.warn('Backend local conectando... modo offline/local ativo.', e);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -224,10 +236,50 @@ export default function App() {
     } else {
       setAuthChecked(true);
     }
+
+    // Carregamento inicial com indicador visual
     loadData();
-    const handleSync = () => loadData();
+
+    // 1. Sincronização automática quando qualquer componente salvar dados
+    const handleSync = () => loadData(true);
     window.addEventListener('gem-data-updated', handleSync);
-    return () => window.removeEventListener('gem-data-updated', handleSync);
+
+    // 2. Sincronização automática imediata ao abrir o celular ou voltar para a aba do aplicativo
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // 3. Sincronização periódica em segundo plano (a cada 20s enquanto a tela estiver visível)
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    }, 20000);
+
+    // 4. Sincronização instantânea entre abas e janelas do mesmo navegador
+    let syncChannel = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        syncChannel = new BroadcastChannel('sam_musical_sync');
+        syncChannel.onmessage = (ev) => {
+          if (ev?.data?.type === 'SYNC') {
+            loadData(true);
+          }
+        };
+      }
+    } catch (e) {}
+
+    return () => {
+      window.removeEventListener('gem-data-updated', handleSync);
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      clearInterval(intervalId);
+      if (syncChannel) syncChannel.close();
+    };
   }, []);
 
   const handleLoginSuccess = (user, token) => {
@@ -289,7 +341,7 @@ export default function App() {
       if (res.ok) {
         showToast(item.id ? 'Cadastro atualizado e sincronizado com sucesso!' : 'Novo integrante cadastrado com sucesso!');
         await loadData();
-        window.dispatchEvent(new CustomEvent('gem-data-updated', { detail: item }));
+        broadcastSyncUpdate(item);
       } else {
         setData(prev => {
           const list = [...(prev.integrantes || [])];
@@ -329,7 +381,8 @@ export default function App() {
       const res = await fetch(`/api/integrantes/${deleteCandidate.id}`, { method: 'DELETE' });
       if (res.ok) {
         showToast(`"${deleteCandidate.nome}" foi removido com sucesso.`);
-        loadData();
+        await loadData();
+        broadcastSyncUpdate({ action: 'delete' });
       } else {
         setData(prev => ({
           ...prev,
@@ -1061,6 +1114,7 @@ export default function App() {
             setModalAlunoGem(null);
             showToast('Ficha do aluno salva com sucesso!');
             loadData();
+            broadcastSyncUpdate({ action: 'aluno-saved' });
           }}
         />
       )}
@@ -1077,6 +1131,7 @@ export default function App() {
             setModalLancamentoGem(null);
             showToast('Atividade lançada no histórico com sucesso!');
             loadData();
+            broadcastSyncUpdate({ action: 'historico-saved' });
           }}
         />
       )}
