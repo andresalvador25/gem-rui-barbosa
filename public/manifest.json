@@ -1,0 +1,31 @@
+{
+  "name": "SAM Musical CCB — Vila Rui Barbosa",
+  "short_name": "SAM Musical",
+  "description": "Sistema de Administração Musical e GEM — Congregação Cristã no Brasil (Vila Rui Barbosa • Jundiaí - SP)",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

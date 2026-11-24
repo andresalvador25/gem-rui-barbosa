@@ -21,7 +21,9 @@ import {
   BarChart3,
   FileSpreadsheet,
   Piano,
-  GraduationCap
+  GraduationCap,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import NaipeCards from './components/NaipeCards.jsx';
 import UnifiedTable from './components/UnifiedTable.jsx';
@@ -72,6 +74,33 @@ export default function App() {
 
   // Menu Lateral no Celular (Drawer)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // PWA Install Prompt (Celular e PC)
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    setMobileMenuOpen(false);
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredInstallPrompt(null);
+        showToast('Aplicativo SAM Musical instalado com sucesso!');
+      }
+    } else {
+      setIsInstallModalOpen(true);
+    }
+  };
 
   // 2 Abas Principais e Sub-abas
   const [mainTab, setMainTab] = useState('corpo');
@@ -548,6 +577,15 @@ export default function App() {
       {/* Rodapé da Sidebar: Ferramentas ADM & Perfil */}
       <div className="p-3.5 border-t border-white/10 space-y-2.5 bg-slate-950/50">
         <div className="grid grid-cols-2 gap-1.5">
+          {/* Botão Instalar App no Celular / PC */}
+          <button
+            onClick={handleInstallApp}
+            className="col-span-2 flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 px-3 py-2 rounded-xl text-xs font-black border border-emerald-400/30 transition"
+          >
+            <Download className="w-4 h-4 text-emerald-300" />
+            <span>📲 Instalar App (Celular / PC)</span>
+          </button>
+
           {permissoes.canManageUsers && (
             <button
               onClick={() => {
@@ -1029,6 +1067,58 @@ export default function App() {
             loadData();
           }}
         />
+      )}
+
+      {/* Modal Guia de Instalação do Aplicativo (Celular e PC) */}
+      {isInstallModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn no-print">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-black text-sm sm:text-base">Instalar Aplicativo SAM Musical</h3>
+                  <p className="text-[11px] text-blue-200/80">Funciona como App nativo no Celular e no Computador</p>
+                </div>
+              </div>
+              <button onClick={() => setIsInstallModalOpen(false)} className="text-slate-300 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
+                <span className="font-black text-emerald-900 block text-xs">📱 No Celular Android (Chrome):</span>
+                <p>
+                  Toque nos <strong>3 pontinhos (⋮)</strong> no canto superior direito do navegador e selecione{' '}
+                  <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-1">
+                <span className="font-black text-blue-900 block text-xs">🍎 No iPhone / iPad (Safari):</span>
+                <p>
+                  Toque no botão <strong>Compartilhar</strong> (ícone de quadrado com seta para cima na barra inferior) e escolha{' '}
+                  <strong>"Adicionar à Tela de Início"</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 space-y-1">
+                <span className="font-black text-slate-900 block text-xs">💻 No Computador (Chrome ou Edge):</span>
+                <p>
+                  Clique no ícone de <strong>Instalar (🖥️ com setinha)</strong> que aparece no canto direito da barra de endereço do navegador (ao lado da estrela de favoritos).
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsInstallModalOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-black text-xs transition"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
