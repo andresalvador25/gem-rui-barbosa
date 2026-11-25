@@ -604,16 +604,13 @@ export default function UnifiedTable({
                     {getSortIcon('nome')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('nivel')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[170px]">
+                <th onClick={() => handleSort('nivel')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[220px]">
                   <div className="flex items-center gap-1.5">
                     <span>Situação / Nível</span>
                     {getSortIcon('nivel')}
                   </div>
                 </th>
-                <th className="py-3 px-4 whitespace-nowrap">
-                  <span>Atuação nos Serviços</span>
-                </th>
-                <th onClick={() => handleSort('telefone')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[160px]">
+                <th onClick={() => handleSort('telefone')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[180px]">
                   <div className="flex items-center gap-1.5">
                     <span>Telefone</span>
                     {getSortIcon('telefone')}
@@ -627,7 +624,7 @@ export default function UnifiedTable({
             <tbody className="divide-y divide-slate-100 bg-white">
               {filteredAndSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-semibold">
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-semibold">
                     Nenhum integrante encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -653,7 +650,7 @@ export default function UnifiedTable({
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
                       {/* Instrumento */}
-                      <td className="py-2.5 px-4 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${corNaipeDot}`} />
                           <div>
@@ -668,7 +665,7 @@ export default function UnifiedTable({
                       </td>
 
                       {/* Nome do Integrante */}
-                      <td className="py-2.5 px-4">
+                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
                             onClick={() => {
@@ -694,43 +691,21 @@ export default function UnifiedTable({
                       </td>
 
                       {/* Situação / Nível */}
-                      <td className="py-2.5 px-4 whitespace-nowrap">
-                        <span className={`inline-block text-xs px-2.5 py-1 rounded-full border ${nivelBadgeStyle}`}>
-                          {nivelAtual}
-                        </span>
-                      </td>
-
-                      {/* Atuação nos Serviços */}
-                      <td className="py-2.5 px-4">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {item.ensaios && (
-                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200/80">
-                              Ensaios
-                            </span>
-                          )}
-                          {item.rjm && (
-                            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200/80">
-                              RJM
-                            </span>
-                          )}
-                          {item.meiaHora && (
-                            <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200/80">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`inline-block text-xs px-2.5 py-1 rounded-full border ${nivelBadgeStyle}`}>
+                            {nivelAtual}
+                          </span>
+                          {item.categoria === 'Organista' && item.meiaHora && (
+                            <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200/80" title="Toca na Meia Hora">
                               Meia Hora
                             </span>
-                          )}
-                          {item.cultosOficiais && (
-                            <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200/80">
-                              Cultos Oficiais
-                            </span>
-                          )}
-                          {!item.ensaios && !item.rjm && !item.meiaHora && !item.cultosOficiais && (
-                            <span className="text-slate-300 font-light text-xs">—</span>
                           )}
                         </div>
                       </td>
 
                       {/* Telefone */}
-                      <td className="py-2.5 px-4 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         {item.telefone ? (
                           <a
                             href={`tel:${item.telefone}`}
@@ -745,7 +720,7 @@ export default function UnifiedTable({
                       </td>
 
                       {/* Ações */}
-                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           {alunoGem && onOpenAlunoLancamento && (
                             <button
@@ -907,9 +882,16 @@ export default function UnifiedTable({
                     <span className={`w-2 h-2 rounded-full ${corNaipeDot}`}></span>
                     {item.instrumento}
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${nivelBadgeColor}`}>
-                    {nivelAtual}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${nivelBadgeColor}`}>
+                      {nivelAtual}
+                    </span>
+                    {item.categoria === 'Organista' && item.meiaHora && (
+                      <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200">
+                        Meia Hora
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -923,16 +905,6 @@ export default function UnifiedTable({
                       <span>{item.telefone}</span>
                     </a>
                   )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-100">
-                  {item.ensaios && <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-200">Ensaio</span>}
-                  {item.rjm && <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">RJM</span>}
-                  {item.meiaHora && <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200">Meia Hora</span>}
-                  {item.cultosOficiais && <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-1.5 py-0.2 rounded border border-teal-200">Cultos</span>}
-                  {item.oficializado ? (
-                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200">Ofic.</span>
-                  ) : null}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
