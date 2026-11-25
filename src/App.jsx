@@ -24,7 +24,8 @@ import {
   Piano,
   GraduationCap,
   Download,
-  Smartphone
+  Smartphone,
+  MessageSquarePlus
 } from 'lucide-react';
 import NaipeCards from './components/NaipeCards.jsx';
 import UnifiedTable from './components/UnifiedTable.jsx';
@@ -42,6 +43,7 @@ import LancamentoHistoricoModal from './components/LancamentoHistoricoModal.jsx'
 import LoginView from './components/LoginView.jsx';
 import PerfisModal from './components/PerfisModal.jsx';
 import PortalCandidatoView from './components/PortalCandidatoView.jsx';
+import FeedbackModal from './components/FeedbackModal.jsx';
 import { isSamePerson } from './utils/gemSync.js';
 import {
   getStoredUser,
@@ -123,6 +125,7 @@ export default function App() {
   const [isIntegranteModalOpen, setIsIntegranteModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [notification, setNotification] = useState(null);
 
@@ -732,6 +735,17 @@ export default function App() {
                 <span className="truncate">Sincronizar Dados</span>
               </button>
 
+              <button
+                onClick={() => {
+                  setIsFeedbackModalOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white hover:bg-slate-900 transition"
+              >
+                <MessageSquarePlus className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="truncate">Ajude a Melhorar (Feedback)</span>
+              </button>
+
               {/* Conta Conectada + Botão Sair dentro de Gerenciamento */}
               {currentUser && (
                 <div className="pt-2 mt-2 border-t border-slate-800/80 space-y-2 px-2">
@@ -1202,6 +1216,25 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Botão Flutuante de Feedback / Ajude a Melhorar */}
+      <button
+        type="button"
+        onClick={() => setIsFeedbackModalOpen(true)}
+        className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs px-3.5 py-2.5 rounded-full shadow-xl border border-amber-300/40 flex items-center gap-2 transition-transform hover:scale-105 active:scale-95 no-print cursor-pointer"
+        title="Ajude a melhorar o sistema enviando uma sugestão ou relato"
+      >
+        <Sparkles className="w-4 h-4 text-slate-950" />
+        <span className="hidden sm:inline">Ajude a Melhorar</span>
+        <span className="sm:hidden font-extrabold">Feedback</span>
+      </button>
+
+      {/* Modal de Feedback do Usuário */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

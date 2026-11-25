@@ -35,6 +35,18 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
   const [isModalLancamentoOpen, setIsModalLancamentoOpen] = useState(false);
   const [lancamentoEditando, setLancamentoEditando] = useState(null);
 
+  // Modal Mobile Exclusivo para Tarefas & Lições do Candidato
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
+  const [mobileShowCadastro, setMobileShowCadastro] = useState(false);
+
+  const handleAlunoClick = (aluno) => {
+    setSelectedAlunoId(aluno.id);
+    // Se for celular / tablet (< 1024px), abre diretamente o modal com as tarefas do aluno
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsMobileModalOpen(true);
+    }
+  };
+
   const ordenarPorNome = (lista = []) =>
     [...lista].sort((a, b) =>
       (a?.nome || '').trim().localeCompare((b?.nome || '').trim(), 'pt-BR', { sensitivity: 'base' })
@@ -282,24 +294,44 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
               return (
                 <div
                   key={aluno.id}
-                  onClick={() => setSelectedAlunoId(aluno.id)}
+                  onClick={() => handleAlunoClick(aluno)}
                   className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                     isSelected
                       ? 'bg-blue-50 border-blue-500 shadow-xs ring-1 ring-blue-400'
                       : 'bg-white hover:bg-slate-50 border-slate-200'
                   }`}
                 >
-                  <div className="space-y-0.5">
-                    <span className="font-black text-xs text-slate-900 block leading-tight">
+                  <div className="space-y-0.5 min-w-0 pr-2">
+                    <span className="font-black text-xs text-slate-900 block leading-tight truncate">
                       {aluno.nome}
                     </span>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold truncate">
                       <span className="text-blue-700 font-bold">{aluno.instrumento}</span>
                       <span>•</span>
-                      <span>{aluno.comum}</span>
+                      <span className="truncate">{aluno.comum}</span>
                     </div>
                   </div>
-                  <ChevronRight className={`w-4 h-4 transition ${isSelected ? 'text-blue-600 translate-x-0.5' : 'text-slate-300'}`} />
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Botão de ação rápida exclusivo para celular */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAlunoId(aluno.id);
+                          setLancamentoEditando(null);
+                          setIsModalLancamentoOpen(true);
+                        }}
+                        className="lg:hidden flex items-center gap-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-[11px] font-bold px-2 py-1 rounded-lg shadow-xs transition"
+                        title="Lançar lição diretamente"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Lição</span>
+                      </button>
+                    )}
+                    <ChevronRight className={`w-4 h-4 transition ${isSelected ? 'text-blue-600 translate-x-0.5' : 'text-slate-300'}`} />
+                  </div>
                 </div>
               );
             })}
@@ -307,7 +339,8 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
         </div>
 
         {/* COLUNA DIREITA: FICHA CADASTRAL + HISTÓRICO (8 Colunas) */}
-        <div className="lg:col-span-8 space-y-4 print:w-full">
+        {/* No celular (< lg), oculta daqui para não esticar a tela embaixo; abre via modal rápido! */}
+        <div className="hidden lg:block lg:col-span-8 space-y-4 print:block print:w-full">
           {alunoAtual ? (
             <>
               {/* Cabeçalho Exclusivo de Impressão */}
@@ -477,6 +510,140 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
         </div>
 
       </div>
+
+      {/* MODAL EXCLUSIVO MOBILE: TAREFAS, LIÇÕES E HISTÓRICO DO CANDIDATO */}
+      {isMobileModalOpen && alunoAtual && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center bg-slate-950/75 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn font-sans">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            
+            {/* Header do Modal Mobile */}
+            <div className="bg-[#d9edf7] text-[#31708f] px-4 py-3.5 border-b border-[#bce8f1] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center font-black text-[#31708f] shrink-0">
+                  <User className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-black text-sm text-slate-900 uppercase tracking-wide truncate">
+                    {alunoAtual.nome}
+                  </h3>
+                  <p className="text-[11px] font-bold text-[#31708f] truncate">
+                    {alunoAtual.instrumento} • {alunoAtual.comum}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMobileModalOpen(false)}
+                className="text-[#31708f] hover:text-slate-900 p-1 rounded-lg hover:bg-white/50 transition shrink-0"
+                title="Fechar"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Barra de Ações Rápidas no Topo do Modal */}
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2 shrink-0">
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLancamentoEditando(null);
+                    setIsModalLancamentoOpen(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-md transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Lançar Lição / Tarefas</span>
+                </button>
+              )}
+
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlunoEditando(alunoAtual);
+                    setIsModalAlunoOpen(true);
+                  }}
+                  className="flex items-center gap-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-2.5 rounded-xl transition"
+                  title="Editar dados cadastrais"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Cadastro</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setMobileShowCadastro(!mobileShowCadastro)}
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-2.5 rounded-xl border transition ${
+                  mobileShowCadastro
+                    ? 'bg-blue-100 border-blue-300 text-blue-800'
+                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+                <span>{mobileShowCadastro ? 'Ocultar' : 'Ficha'}</span>
+              </button>
+            </div>
+
+            {/* Conteúdo com Rolagem */}
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              {/* Ficha Resumida (expansível) */}
+              {mobileShowCadastro && (
+                <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-200/80 space-y-2 text-xs animate-fadeIn">
+                  <h4 className="font-extrabold text-blue-900 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                    <User className="w-3.5 h-3.5" />
+                    Dados Cadastrais do Candidato
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-slate-700">
+                    <div><span className="text-slate-400 text-[10px] block uppercase">Nível:</span> <strong>{alunoAtual.nivel || 'CANDIDATO(A)'}</strong></div>
+                    <div><span className="text-slate-400 text-[10px] block uppercase">Tonalidade:</span> <strong>{alunoAtual.tonalidade || 'DÓ'}</strong></div>
+                    <div><span className="text-slate-400 text-[10px] block uppercase">Início GEM:</span> <strong>{alunoAtual.dataInicioGem ? alunoAtual.dataInicioGem.split('-').reverse().join('/') : '-'}</strong></div>
+                    <div><span className="text-slate-400 text-[10px] block uppercase">Batizado(a):</span> <strong>{alunoAtual.batizado === false || alunoAtual.batizado === 'NÃO' ? 'NÃO' : 'SIM'}</strong></div>
+                    <div className="col-span-2"><span className="text-slate-400 text-[10px] block uppercase">Contato:</span> <strong>{alunoAtual.telefone || alunoAtual.contato || '-'}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Histórico e Tarefas do Aluno */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h4 className="font-black text-slate-900 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-purple-600" />
+                    Histórico & Lições ({historico.length})
+                  </h4>
+                </div>
+
+                <HistoricoAlunoView
+                  historico={historico}
+                  readOnly={!canEdit}
+                  canDelete={canDelete}
+                  onAddClick={() => {
+                    setLancamentoEditando(null);
+                    setIsModalLancamentoOpen(true);
+                  }}
+                  onEditClick={(item) => {
+                    setLancamentoEditando(item);
+                    setIsModalLancamentoOpen(true);
+                  }}
+                  onDeleteClick={handleDeleteLancamento}
+                />
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsMobileModalOpen(false)}
+                className="w-full sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition"
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: FICHA CADASTRAL DO ALUNO (IMAGEM 1) */}
       <AlunoGemModal

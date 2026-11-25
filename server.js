@@ -42,7 +42,8 @@ function isSupabaseEnabled() {
 const cloudCache = {
   orquestra_data: null,
   gem_database: null,
-  users_auth: null
+  users_auth: null,
+  feedbacks: null
 };
 
 let pendingCloudWrites = [];
@@ -1326,6 +1327,64 @@ app.post('/api/restore-backup', requireRoles(['admin']), (req, res) => {
     }
   }
   res.status(404).json({ success: false, message: 'Arquivo de backup não encontrado.' });
+});
+
+// ============================================================================
+// SISTEMA DE FEEDBACK & SUGESTÕES DOS USUÁRIOS
+// ============================================================================
+function getFeedbacksData() {
+  if (isSupabaseEnabled() && cloudCache.feedbacks) {
+    return Array.isArray(cloudCache.feedbacks.list) ? cloudCache.feedbacks.list : [];
+  }
+  const feedbackFile = path.join(__dirname, 'feedbacks.json');
+  try {
+    if (fs.existsSync(feedbackFile)) {
+      const parsed = JSON.parse(fs.readFileSync(feedbackFile, 'utf-8'));
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveFeedbacksData(list) {
+  cloudCache.feedbacks = { list };
+  queueCloudWrite('feedbacks', { list });
+  const feedbackFile = path.join(__dirname, 'feedbacks.json');
+  try {
+    fs.writeFileSync(feedbackFile, JSON.stringify(list, null, 2), 'utf-8');
+  } catch (e) {}
+}
+
+app.get('/api/feedback', (req, res) => {
+  const list = getFeedbacksData();
+  res.json({ success: true, feedbacks: list });
+});
+
+app.post('/api/feedback', (req, res) => {
+  const item = req.body || {};
+  if (!item.mensagem || !item.mensagem.trim()) {
+    return res.status(400).json({ success: false, message: 'Mensagem de feedback não pode estar vazia.' });
+  }
+  const list = getFeedbacksData();
+  const novo = {
+    id: Date.now(),
+    tipo: item.tipo || 'Sugestão',
+    mensagem: item.mensagem.trim(),
+    nome: item.nome && item.nome.trim() ? item.nome.trim() : 'Irmão(ã) da CCB',
+    avaliacao: Number(item.avaliacao) || 5,
+    criadoEm: new Date().toISOString()
+  };
+  list.unshift(novo);
+  saveFeedbacksData(list);
+  res.json({ success: true, item: novo });
+});
+
+app.delete('/api/feedback/:id', (req, res) => {
+  const id = Number(req.params.id) || req.params.id;
+  let list = getFeedbacksData();
+  list = list.filter(f => f.id !== id);
+  saveFeedbacksData(list);
+  res.json({ success: true, id });
 });
 
 // Healthcheck & Keep-Alive (evita que o projeto gratuito do Supabase entre em pausa!)

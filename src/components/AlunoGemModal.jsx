@@ -73,7 +73,7 @@ export default function AlunoGemModal({ isOpen, onClose, onSave, onSaveSuccess, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 max-w-3xl w-full p-6 space-y-5">
         
         {/* Header Exato da Imagem: 'i Preencha os campos e clique em salvar. Campos com * são obrigatórios.' */}

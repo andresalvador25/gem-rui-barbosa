@@ -159,7 +159,7 @@ export default function LancamentoHistoricoModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 max-w-2xl w-full overflow-hidden space-y-0">
         
         {/* Barra Superior Azul Clara (Exato da Imagem: '👤 DAVI EVANGELISTA / VIOLINO') */}
