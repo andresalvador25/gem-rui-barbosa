@@ -85,6 +85,22 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
     [users]
   );
 
+  const usuariosExibidos = useMemo(() => {
+    const list = [...users].sort((a, b) => {
+      const aPend = a.status === 'pendente' || a.ativo === false ? 0 : 1;
+      const bPend = b.status === 'pendente' || b.ativo === false ? 0 : 1;
+      if (aPend !== bPend) return aPend - bPend;
+      return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
+    });
+    if (filtroStatus === 'pendentes') {
+      return list.filter(u => u.status === 'pendente' || u.ativo === false);
+    }
+    if (filtroStatus === 'ativos') {
+      return list.filter(u => u.ativo !== false && u.status !== 'pendente');
+    }
+    return list;
+  }, [users, filtroStatus]);
+
   const carregarUsers = async () => {
     setLoading(true);
     setErro('');
@@ -116,8 +132,6 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
       limparForm();
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const limparForm = () => {
     setEditId(null);
@@ -249,21 +263,7 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
     }
   };
 
-  const usuariosExibidos = useMemo(() => {
-    const list = [...users].sort((a, b) => {
-      const aPend = a.status === 'pendente' || a.ativo === false ? 0 : 1;
-      const bPend = b.status === 'pendente' || b.ativo === false ? 0 : 1;
-      if (aPend !== bPend) return aPend - bPend;
-      return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
-    });
-    if (filtroStatus === 'pendentes') {
-      return list.filter(u => u.status === 'pendente' || u.ativo === false);
-    }
-    if (filtroStatus === 'ativos') {
-      return list.filter(u => u.ativo !== false && u.status !== 'pendente');
-    }
-    return list;
-  }, [users, filtroStatus]);
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">

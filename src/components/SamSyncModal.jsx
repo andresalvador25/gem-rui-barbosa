@@ -13,8 +13,6 @@ import {
 } from 'lucide-react';
 
 export default function SamSyncModal({ isOpen, onClose, data, onSyncSuccess }) {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState('status'); // 'status' | 'import'
   const [loading, setLoading] = useState(false);
   const [importText, setImportText] = useState('');
@@ -118,6 +116,8 @@ export default function SamSyncModal({ isOpen, onClose, data, onSyncSuccess }) {
       setLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
