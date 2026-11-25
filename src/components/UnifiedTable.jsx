@@ -14,12 +14,28 @@ import {
   BookOpen,
   Sparkles,
   ChevronDown,
-  MapPin,
-  Music2,
-  Users
+  LayoutGrid,
+  Table as TableIcon
 } from 'lucide-react';
 import { detectarNaipe } from '../constants/instruments.js';
 import { NIVEIS_MUSICAL, isSamePerson, mergeIntegranteWithGem, formatInstrumentName, flagsFromNivel, nivelFromFlags } from '../utils/gemSync.js';
+
+// Normaliza nomes para formato legível (Title Case elegante)
+const formatNome = (str = '') => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .map((word, idx) => {
+      const lower = word.toLowerCase();
+      if (['de', 'da', 'do', 'das', 'dos', 'e'].includes(lower) && idx > 0) {
+        return lower;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
 
 export default function UnifiedTable({ 
   integrantes = [], 
@@ -35,14 +51,14 @@ export default function UnifiedTable({
   initialFilter = null
 }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroCategoria, setFiltroCategoria] = useState('Todos'); // 'Todos', 'Músico', 'Organista', 'GEM'
-  const [filtroOficializado, setFiltroOficializado] = useState('Todos'); // 'Todos', 'Oficializado', 'NaoOficializado', 'RJM'
-  const [filtrosNivel, setFiltrosNivel] = useState([]); // Array de níveis selecionados
+  const [filtroCategoria, setFiltroCategoria] = useState('Orquestra'); // 'Orquestra', 'Músico', 'Organista', 'GEM'
+  const [filtrosNivel, setFiltrosNivel] = useState([]);
   const [isNivelDropdownOpen, setIsNivelDropdownOpen] = useState(false);
   const nivelDropdownRef = useRef(null);
   const [filtroInstrumento, setFiltroInstrumento] = useState('Todos');
   const [sortField, setSortField] = useState('instrumento');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [modoVisualizacao, setModoVisualizacao] = useState('moderno'); // 'moderno' ou 'planilha'
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -65,27 +81,27 @@ export default function UnifiedTable({
     if (!initialFilter) return;
     if (initialFilter === 'musicos_ofic') {
       setFiltroCategoria('Músico');
-      setFiltroOficializado('Oficializado');
+      setFiltrosNivel(['OFICIALIZADO', 'RJM / OFICIALIZADO']);
       if (onSelectNaipe) onSelectNaipe('Todos');
     } else if (initialFilter === 'musicos_nao_ofic') {
       setFiltroCategoria('Músico');
-      setFiltroOficializado('NaoOficializado');
+      setFiltrosNivel(['ENSAIO', 'RJM', 'CULTO OFICIAL', 'CANDIDATO(A)']);
       if (onSelectNaipe) onSelectNaipe('Todos');
     } else if (initialFilter === 'organistas_ofic') {
       setFiltroCategoria('Organista');
-      setFiltroOficializado('Oficializado');
+      setFiltrosNivel(['OFICIALIZADO', 'RJM / OFICIALIZADO']);
       if (onSelectNaipe) onSelectNaipe('Todos');
     } else if (initialFilter === 'organistas_nao_ofic') {
       setFiltroCategoria('Organista');
-      setFiltroOficializado('NaoOficializado');
+      setFiltrosNivel(['ENSAIO', 'RJM', 'CULTO OFICIAL', 'CANDIDATO(A)']);
       if (onSelectNaipe) onSelectNaipe('Todos');
     } else if (initialFilter === 'total_musicos') {
       setFiltroCategoria('Músico');
-      setFiltroOficializado('Todos');
+      setFiltrosNivel([]);
       if (onSelectNaipe) onSelectNaipe('Todos');
     } else if (initialFilter === 'total_organistas') {
       setFiltroCategoria('Organista');
-      setFiltroOficializado('Todos');
+      setFiltrosNivel([]);
       if (onSelectNaipe) onSelectNaipe('Todos');
     }
   }, [initialFilter]);
@@ -93,47 +109,45 @@ export default function UnifiedTable({
   // Helper seguro para garantir estritamente integrantes de Vila Rui Barbosa
   const isFromRuiBarbosa = (item) => {
     const comum = (item?.comum || '').toUpperCase().trim();
-    if (!comum) return true; // Se não informado, pertence à congregação local padrão (Vila Rui Barbosa)
+    if (!comum) return true;
     return comum.includes('RUI BARBOSA') || comum.includes('VRB');
   };
 
-  // Helper seguro para localizar o aluno correspondente no GEM
   const getAlunoGem = (itemOrNome) => {
     if (!itemOrNome || !alunosGem || alunosGem.length === 0) return null;
     const target = typeof itemOrNome === 'string' ? { nome: itemOrNome } : itemOrNome;
     return alunosGem.find(a => isSamePerson(target, a)) || null;
   };
 
-  // Lista consolidada e linkada em tempo real (EXCLUSIVA DE VILA RUI BARBOSA)
-  const listaConsolidada = useMemo(() => {
-    const usedGemIds = new Set();
-    const merged = [];
-
-    // 1. Integrantes cadastrados no Corpo Musical
-    (integrantes || []).forEach(intg => {
+  // 1. Integrantes Oficiais da Orquestra de Vila Rui Barbosa (55 integrantes)
+  const integrantesOrquestra = useMemo(() => {
+    return (integrantes || []).filter(isFromRuiBarbosa).map(intg => {
       const aluno = (alunosGem || []).find(a => isSamePerson(intg, a));
-      if (aluno) usedGemIds.add(aluno.id);
-      const consolidated = {
+      return {
         ...mergeIntegranteWithGem(intg, aluno),
-        alunoGemRef: aluno || null
+        nomeFormatado: formatNome(intg.nome),
+        alunoGemRef: aluno || null,
+        isOrquestra: true
       };
-      if (isFromRuiBarbosa(consolidated)) {
-        merged.push(consolidated);
-      }
     });
+  }, [integrantes, alunosGem]);
 
-    // 2. Alunos e Candidatos do GEM de Vila Rui Barbosa que ainda não constavam no Corpo Musical
+  // 2. Alunos e Candidatos do GEM de Vila Rui Barbosa que ainda NÃO estão na Orquestra
+  const candidatosGemApenas = useMemo(() => {
+    const existingIds = new Set(integrantesOrquestra.map(i => i.gemId || i.id));
+    const list = [];
     (alunosGem || []).forEach(aluno => {
-      if (!usedGemIds.has(aluno.id) && isFromRuiBarbosa(aluno)) {
+      if (!existingIds.has(aluno.id) && !integrantesOrquestra.some(i => isSamePerson(i, aluno)) && isFromRuiBarbosa(aluno)) {
         const categoria = String(aluno.cargo || '').toUpperCase() === 'ORGANISTA' ? 'Organista' : 'Músico';
         const instrumento = formatInstrumentName(aluno.instrumento, categoria);
         const naipe = detectarNaipe(instrumento, categoria);
         const nivel = String(aluno.nivel || 'CANDIDATO(A)').toUpperCase().trim();
         const flags = flagsFromNivel(nivel, false);
-        merged.push({
+        list.push({
           id: `gem-${aluno.id}`,
           gemId: aluno.id,
           nome: aluno.nome,
+          nomeFormatado: formatNome(aluno.nome),
           categoria,
           instrumento,
           naipe,
@@ -151,24 +165,56 @@ export default function UnifiedTable({
           batizado: true,
           telefone: aluno.telefone || '',
           observacao: aluno.observacoes || '',
-          apenasGem: nivel === 'CANDIDATO(A)',
+          isOrquestra: false,
           alunoGemRef: aluno
         });
       }
     });
+    return list;
+  }, [integrantesOrquestra, alunosGem]);
 
-    return merged;
-  }, [integrantes, alunosGem]);
+  // Lista base conforme a categoria selecionada (Por padrão, foca na Orquestra da casa)
+  const baseList = useMemo(() => {
+    if (filtroCategoria === 'GEM') {
+      return [...integrantesOrquestra.filter(i => !!i.alunoGemRef), ...candidatosGemApenas];
+    }
+    return integrantesOrquestra;
+  }, [filtroCategoria, integrantesOrquestra, candidatosGemApenas]);
 
-  // Lista única de instrumentos para o filtro seletivo
+  // Contadores oficiais
+  const totalOrquestra = integrantesOrquestra.length;
+  const totalMusicos = integrantesOrquestra.filter(i => i.categoria === 'Músico').length;
+  const totalOrganistas = integrantesOrquestra.filter(i => i.categoria === 'Organista').length;
+  const totalGemRuiBarbosa = (alunosGem || []).filter(isFromRuiBarbosa).length;
+
+  // Lista de instrumentos únicos para filtro
   const instrumentosUnicos = useMemo(() => {
-    const list = ['Todos', ...new Set(listaConsolidada.map(i => i.instrumento).filter(Boolean))];
+    const list = ['Todos', ...new Set(baseList.map(i => i.instrumento).filter(Boolean))];
     return list.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [listaConsolidada]);
+  }, [baseList]);
 
-  const totalMusicos = listaConsolidada.filter(i => i.categoria === 'Músico').length;
-  const totalOrganistas = listaConsolidada.filter(i => i.categoria === 'Organista').length;
-  const totalGem = listaConsolidada.filter(i => !!i.alunoGemRef || !!i.gemId).length;
+  // Ordem prioritária oficial da Orquestra CCB
+  const ORDEM_INSTRUMENTOS = {
+    'violino': 1, 'viola': 2, 'violoncelo': 3,
+    'flauta': 10, 'flauta transversal': 10, 'oboé': 11, "oboé d'amore": 12, 'corne inglês': 13,
+    'fagote': 14, 'clarinete': 15, 'clarinete alto': 16, 'clarinete baixo': 17, 'clarone': 17,
+    'saxofone soprano': 18, 'sax soprano': 18, 'saxofone alto': 19, 'sax alto': 19,
+    'saxofone tenor': 20, 'sax tenor': 20, 'saxofone barítono': 21, 'sax barítono': 21,
+    'trompete': 30, 'cornet': 31, 'flugelhorn': 32, 'trompa': 33,
+    'trombone': 34, 'trombone de vara': 34, 'trombone de pisto': 34, 'trombonito': 35,
+    'eufônio': 36, 'eufonio': 36, 'bombardino': 36, 'barítono': 37, 'tuba': 38, 'sousafone': 38,
+    'órgão': 50, 'órgão eletrônico': 50, 'organistas': 50
+  };
+
+  const getOrdemInstrumento = (inst) => {
+    if (!inst) return 99;
+    const clean = inst.toLowerCase().trim();
+    if (ORDEM_INSTRUMENTOS[clean]) return ORDEM_INSTRUMENTOS[clean];
+    for (const [key, val] of Object.entries(ORDEM_INSTRUMENTOS)) {
+      if (clean.includes(key)) return val;
+    }
+    return 99;
+  };
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -190,67 +236,9 @@ export default function UnifiedTable({
     );
   };
 
-  // Ordem prioritária oficial da Orquestra CCB (conforme Apostila MOO e Planilha)
-  const ORDEM_INSTRUMENTOS = {
-    // CORDAS
-    'violino': 1,
-    'viola': 2,
-    'violoncelo': 3,
-    // MADEIRAS
-    'flauta': 10,
-    'flauta transversal': 10,
-    'oboé': 11,
-    "oboé d'amore": 12,
-    'corne inglês': 13,
-    'fagote': 14,
-    'clarinete': 15,
-    'clarinete(a)': 15,
-    'clarinete alto': 16,
-    'clarinete baixo': 17,
-    'clarone': 17,
-    'saxofone soprano': 18,
-    'sax soprano': 18,
-    'saxofone alto': 19,
-    'sax alto': 19,
-    'saxofone tenor': 20,
-    'sax tenor': 20,
-    'saxofone barítono': 21,
-    'sax barítono': 21,
-    // METAIS
-    'trompete': 30,
-    'cornet': 31,
-    'flugelhorn': 32,
-    'trompa': 33,
-    'trombone': 34,
-    'trombone de vara': 34,
-    'trombone de pisto': 34,
-    'trombonito': 35,
-    'eufônio': 36,
-    'eufonio': 36,
-    'bombardino': 36,
-    'barítono': 37,
-    'barítono sib': 37,
-    'tuba': 38,
-    'sousafone': 38,
-    // TECLAS
-    'órgão': 50,
-    'órgão eletrônico': 50,
-    'organistas': 50
-  };
-
-  const getOrdemInstrumento = (inst) => {
-    if (!inst) return 99;
-    const clean = inst.toLowerCase().trim();
-    if (ORDEM_INSTRUMENTOS[clean]) return ORDEM_INSTRUMENTOS[clean];
-    for (const [key, val] of Object.entries(ORDEM_INSTRUMENTOS)) {
-      if (clean.includes(key)) return val;
-    }
-    return 99;
-  };
-
   // Filtragem e ordenação
   const filteredAndSorted = useMemo(() => {
-    let result = [...listaConsolidada];
+    let result = [...baseList];
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
@@ -271,16 +259,6 @@ export default function UnifiedTable({
       result = result.filter(item => item.categoria === 'Músico');
     } else if (filtroCategoria === 'Organista') {
       result = result.filter(item => item.categoria === 'Organista');
-    } else if (filtroCategoria === 'GEM') {
-      result = result.filter(item => !!item.alunoGemRef || !!item.gemId || !item.oficializado);
-    }
-
-    if (filtroOficializado === 'Oficializado') {
-      result = result.filter(item => item.oficializado);
-    } else if (filtroOficializado === 'NaoOficializado') {
-      result = result.filter(item => !item.oficializado);
-    } else if (filtroOficializado === 'RJM') {
-      result = result.filter(item => item.rjm || (item.nivel && item.nivel.includes('RJM')));
     }
 
     if (filtrosNivel.length > 0) {
@@ -331,13 +309,12 @@ export default function UnifiedTable({
     });
 
     return result;
-  }, [listaConsolidada, searchTerm, activeNaipeFilter, filtroCategoria, filtroOficializado, filtrosNivel, filtroInstrumento, sortField, sortDirection]);
+  }, [baseList, searchTerm, activeNaipeFilter, filtroCategoria, filtrosNivel, filtroInstrumento, sortField, sortDirection]);
 
   const temFiltroAtivo = Boolean(
     searchTerm || 
     (activeNaipeFilter && activeNaipeFilter !== 'Todos') || 
-    filtroCategoria !== 'Todos' || 
-    filtroOficializado !== 'Todos' || 
+    filtroCategoria !== 'Orquestra' || 
     filtrosNivel.length > 0 || 
     filtroInstrumento !== 'Todos'
   );
@@ -345,49 +322,64 @@ export default function UnifiedTable({
   const limparFiltros = () => {
     setSearchTerm('');
     if (onSelectNaipe) onSelectNaipe('Todos');
-    setFiltroCategoria('Todos');
-    setFiltroOficializado('Todos');
+    setFiltroCategoria('Orquestra');
     setFiltrosNivel([]);
     setFiltroInstrumento('Todos');
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* BARRA SUPERIOR DE FILTROS E BUSCA */}
-      <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-b from-slate-50/50 to-white space-y-3.5">
-        
-        {/* Linha 1: Identificação de Congregação + Busca + Botão Adicionar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-900 font-extrabold text-xs shadow-2xs">
-              <MapPin className="w-3.5 h-3.5 text-blue-600" />
-              <span>Vila Rui Barbosa</span>
-            </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span className="text-xs text-slate-500 font-semibold hidden sm:inline">
-              Corpo Musical e Candidatos da Casa
-            </span>
+    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+      {/* TOOLBAR SUPERIOR COMPACTA E MODERNA */}
+      <div className="p-3.5 sm:p-4 border-b border-slate-200 bg-slate-50/50 space-y-3">
+        {/* Linha 1: Busca + Alternador de Visualização + Botão Adicionar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome, instrumento, telefone..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Limpar busca"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2.5 flex-1 max-w-lg md:ml-auto">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nome, instrumento, telefone..."
-                className="w-full pl-10 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition shadow-2xs"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  title="Limpar busca"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            {/* Alternador de Layout: Visual Moderno vs Planilha CCB */}
+            <div className="hidden lg:inline-flex p-1 rounded-xl bg-slate-200/70 border border-slate-300/60 text-xs font-bold">
+              <button
+                onClick={() => setModoVisualizacao('moderno')}
+                className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition ${
+                  modoVisualizacao === 'moderno'
+                    ? 'bg-white text-blue-900 shadow-2xs font-extrabold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Visualização moderna com foco em leitura rápida"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                <span>Visual Moderno</span>
+              </button>
+              <button
+                onClick={() => setModoVisualizacao('planilha')}
+                className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition ${
+                  modoVisualizacao === 'planilha'
+                    ? 'bg-white text-blue-900 shadow-2xs font-extrabold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Visualização em colunas completas da Planilha Oficial"
+              >
+                <TableIcon className="w-3.5 h-3.5 text-slate-500" />
+                <span>Planilha CCB</span>
+              </button>
             </div>
 
             {!readOnly && onAddClick && (
@@ -396,48 +388,46 @@ export default function UnifiedTable({
                 className="bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 shrink-0"
               >
                 <UserPlus className="w-4 h-4" />
-                <span className="hidden sm:inline">+ Novo Integrante</span>
-                <span className="sm:hidden">+ Novo</span>
+                <span>+ Novo Integrante</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Linha 2: Segmented Control de Categorias e Dropdowns de Filtro */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100">
-          {/* Segmented Control */}
-          <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200/80 gap-1 overflow-x-auto max-w-full">
+        {/* Linha 2: Pílulas de Categoria e Filtros */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60">
+          <div className="inline-flex p-1 rounded-xl bg-slate-200/60 border border-slate-200 gap-1 overflow-x-auto max-w-full">
             <button
               onClick={() => {
-                setFiltroCategoria('Todos');
-                onSelectNaipe('Todos');
+                setFiltroCategoria('Orquestra');
+                if (onSelectNaipe) onSelectNaipe('Todos');
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
-                filtroCategoria === 'Todos'
-                  ? 'bg-white text-slate-900 shadow-xs'
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+                filtroCategoria === 'Orquestra'
+                  ? 'bg-white text-slate-900 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span>Todos</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700">
-                {listaConsolidada.length}
+              <span>Orquestra</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-100 text-slate-700">
+                {totalOrquestra}
               </span>
             </button>
 
             <button
               onClick={() => {
                 setFiltroCategoria('Músico');
-                if (activeNaipeFilter === 'Teclas / Organistas') onSelectNaipe('Todos');
+                if (activeNaipeFilter === 'Teclas / Organistas' && onSelectNaipe) onSelectNaipe('Todos');
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
                 filtroCategoria === 'Músico'
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span>🎺 Músicos</span>
+              <span>Músicos</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                filtroCategoria === 'Músico' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-700'
+                filtroCategoria === 'Músico' ? 'bg-blue-800 text-white' : 'bg-slate-100 text-slate-700'
               }`}>
                 {totalMusicos}
               </span>
@@ -446,17 +436,17 @@ export default function UnifiedTable({
             <button
               onClick={() => {
                 setFiltroCategoria('Organista');
-                onSelectNaipe('Todos');
+                if (onSelectNaipe) onSelectNaipe('Todos');
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
                 filtroCategoria === 'Organista'
-                  ? 'bg-purple-600 text-white shadow-xs'
+                  ? 'bg-purple-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span>🎹 Organistas</span>
+              <span>Organistas</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                filtroCategoria === 'Organista' ? 'bg-purple-800 text-white' : 'bg-slate-200 text-slate-700'
+                filtroCategoria === 'Organista' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-slate-700'
               }`}>
                 {totalOrganistas}
               </span>
@@ -465,30 +455,30 @@ export default function UnifiedTable({
             <button
               onClick={() => {
                 setFiltroCategoria('GEM');
-                onSelectNaipe('Todos');
+                if (onSelectNaipe) onSelectNaipe('Todos');
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
                 filtroCategoria === 'GEM'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Ver alunos e candidatos em acompanhamento no GEM"
             >
-              <span>🎓 Ficha GEM</span>
+              <span>Alunos GEM</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                filtroCategoria === 'GEM' ? 'bg-indigo-800 text-white' : 'bg-slate-200 text-slate-700'
+                filtroCategoria === 'GEM' ? 'bg-indigo-800 text-white' : 'bg-slate-100 text-slate-700'
               }`}>
-                {totalGem}
+                {totalGemRuiBarbosa}
               </span>
             </button>
           </div>
 
-          {/* Filtros Dropdown alinhados à direita */}
           <div className="flex flex-wrap items-center gap-2">
             {filtroCategoria !== 'Organista' && (
               <select
                 value={activeNaipeFilter}
-                onChange={e => onSelectNaipe(e.target.value)}
-                className="text-xs px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-700 outline-none cursor-pointer shadow-2xs"
+                onChange={e => onSelectNaipe && onSelectNaipe(e.target.value)}
+                className="text-xs px-2 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 outline-none cursor-pointer"
               >
                 <option value="Todos">Todos os Naipes</option>
                 <option value="Cordas">🎻 Cordas</option>
@@ -497,15 +487,15 @@ export default function UnifiedTable({
               </select>
             )}
 
-            {/* Nível Múltipla Escolha */}
+            {/* Nível Dropdown */}
             <div className="relative" ref={nivelDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsNivelDropdownOpen(prev => !prev)}
-                className={`text-xs px-3 py-1.5 border rounded-lg font-semibold outline-none cursor-pointer flex items-center gap-1.5 transition ${
+                className={`text-xs px-2.5 py-1.5 border rounded-lg font-semibold outline-none cursor-pointer flex items-center gap-1.5 transition ${
                   filtrosNivel.length > 0
-                    ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-2xs font-bold'
-                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-2xs'
+                    ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold'
+                    : 'bg-white border-slate-200 text-slate-700'
                 }`}
               >
                 <span>
@@ -519,9 +509,9 @@ export default function UnifiedTable({
               </button>
 
               {isNivelDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200 rounded-xl shadow-xl py-2 animate-fadeIn">
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-2 animate-fadeIn">
                   <div className="px-3 pb-1.5 mb-1 border-b border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-slate-500 uppercase tracking-wider">Filtrar Nível</span>
+                    <span className="font-bold text-slate-500 uppercase">Filtrar Nível</span>
                     {filtrosNivel.length > 0 && (
                       <button
                         type="button"
@@ -532,15 +522,15 @@ export default function UnifiedTable({
                       </button>
                     )}
                   </div>
-                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-50">
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
                     {NIVEIS_MUSICAL.map(nivel => {
                       const isChecked = filtrosNivel.includes(nivel);
-                      const qtd = listaConsolidada.filter(i => (i.nivel || nivelFromFlags(i)) === nivel).length;
+                      const qtd = baseList.filter(i => (i.nivel || nivelFromFlags(i)) === nivel).length;
                       return (
                         <label
                           key={nivel}
                           className={`flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer transition ${
-                            isChecked ? 'bg-blue-50/70 font-bold text-blue-900' : 'hover:bg-slate-50 text-slate-700 font-medium'
+                            isChecked ? 'bg-blue-50/70 font-bold text-blue-900' : 'hover:bg-slate-50 text-slate-700'
                           }`}
                         >
                           <div className="flex items-center gap-2">
@@ -563,13 +553,12 @@ export default function UnifiedTable({
               )}
             </div>
 
-            {/* Instrumento Select */}
             <select
               value={filtroInstrumento}
               onChange={e => setFiltroInstrumento(e.target.value)}
-              className="text-xs px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-700 outline-none cursor-pointer shadow-2xs max-w-[160px] truncate"
+              className="text-xs px-2 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 outline-none cursor-pointer max-w-[150px] truncate"
             >
-              <option value="Todos">Todos os Instrumentos</option>
+              <option value="Todos">Todos Instrumentos</option>
               {instrumentosUnicos.filter(i => i !== 'Todos').map(inst => (
                 <option key={inst} value={inst}>{inst}</option>
               ))}
@@ -587,21 +576,307 @@ export default function UnifiedTable({
         </div>
       </div>
 
-      {/* BARRA DE CONTAGEM E INSTRUÇÃO */}
-      <div className="bg-slate-50 px-4 sm:px-5 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+      {/* BARRA DE CONTAGEM INFORMATIVA */}
+      <div className="bg-slate-50/80 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500">
         <span>
-          Mostrando <strong>{filteredAndSorted.length}</strong> de <strong>{listaConsolidada.length}</strong> integrantes de Vila Rui Barbosa
+          Mostrando <strong>{filteredAndSorted.length}</strong> {filtroCategoria === 'GEM' ? 'candidatos e alunos' : 'integrantes da orquestra'} de Vila Rui Barbosa
         </span>
         <span className="text-slate-400 text-[11px] hidden md:inline">
-          Clique nas colunas com setas (▲▼) para ordenar
+          Clique nos títulos das colunas para ordenar
         </span>
       </div>
 
-      {/* VISÃO EM CARTÕES RESPONSIVA (CELULAR / TELAS PEQUENAS) */}
-      <div className="md:hidden p-3 space-y-2.5 bg-slate-50/50 print:hidden">
+      {/* MODO 1: VISÃO MODERNA (ELEGANTE, LIMPA, SEM ESPAÇOS VAZIOS) */}
+      {modoVisualizacao === 'moderno' && (
+        <div className="hidden md:block print:block overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-extrabold sticky top-0 z-10 backdrop-blur-xs">
+                <th onClick={() => handleSort('instrumento')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[200px]">
+                  <div className="flex items-center gap-1.5">
+                    <span>Instrumento</span>
+                    {getSortIcon('instrumento')}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('nome')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition">
+                  <div className="flex items-center gap-1.5">
+                    <span>Integrante / Nome</span>
+                    {getSortIcon('nome')}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('nivel')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[170px]">
+                  <div className="flex items-center gap-1.5">
+                    <span>Situação / Nível</span>
+                    {getSortIcon('nivel')}
+                  </div>
+                </th>
+                <th className="py-3 px-4 whitespace-nowrap">
+                  <span>Atuação nos Serviços</span>
+                </th>
+                <th onClick={() => handleSort('telefone')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-[160px]">
+                  <div className="flex items-center gap-1.5">
+                    <span>Telefone</span>
+                    {getSortIcon('telefone')}
+                  </div>
+                </th>
+                <th className="py-3 px-4 text-right whitespace-nowrap w-[90px]">
+                  <span>Ações</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredAndSorted.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 font-semibold">
+                    Nenhum integrante encontrado com os filtros selecionados.
+                  </td>
+                </tr>
+              ) : (
+                filteredAndSorted.map(item => {
+                  const alunoGem = item.alunoGemRef || getAlunoGem(item);
+                  const rawNivel = item.nivel || nivelFromFlags(item);
+                  const nivelAtual = rawNivel === 'RJM OFICIALIZADO' ? 'RJM / OFICIALIZADO' : rawNivel;
+
+                  let nivelBadgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
+                  if (nivelAtual === 'OFICIALIZADO') nivelBadgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold';
+                  else if (nivelAtual === 'RJM / OFICIALIZADO') nivelBadgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold';
+                  else if (nivelAtual.includes('CULTO')) nivelBadgeStyle = 'bg-teal-50 text-teal-800 border-teal-200 font-bold';
+                  else if (nivelAtual.includes('RJM')) nivelBadgeStyle = 'bg-amber-50 text-amber-800 border-amber-200 font-bold';
+                  else if (nivelAtual === 'ENSAIO') nivelBadgeStyle = 'bg-blue-50 text-blue-800 border-blue-200 font-bold';
+                  else if (nivelAtual === 'CANDIDATO(A)') nivelBadgeStyle = 'bg-purple-50 text-purple-800 border-purple-200 font-bold';
+
+                  const corNaipeDot = 
+                    item.naipe === 'Cordas' ? 'bg-blue-500' :
+                    item.naipe === 'Madeiras' ? 'bg-emerald-500' :
+                    item.naipe === 'Metais' ? 'bg-amber-500' : 'bg-purple-500';
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
+                      {/* Instrumento */}
+                      <td className="py-2.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${corNaipeDot}`} />
+                          <div>
+                            <span className="font-extrabold text-slate-900 text-sm block leading-tight">
+                              {item.instrumento}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
+                              {item.naipe}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Nome do Integrante */}
+                      <td className="py-2.5 px-4">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            onClick={() => {
+                              if (alunoGem && onOpenAlunoFicha) onOpenAlunoFicha(alunoGem);
+                              else if (onEditClick) onEditClick(item);
+                            }}
+                            className="font-bold text-slate-900 text-sm hover:text-blue-700 cursor-pointer transition"
+                            title={alunoGem ? `Abrir ficha de ${item.nomeFormatado}` : `Editar ${item.nomeFormatado}`}
+                          >
+                            {item.nomeFormatado}
+                          </span>
+                          {alunoGem && (
+                            <button
+                              onClick={() => onOpenAlunoFicha && onOpenAlunoFicha(alunoGem)}
+                              className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded transition shadow-2xs"
+                              title="Ver Ficha Cadastral no GEM"
+                            >
+                              <BookOpen className="w-2.5 h-2.5 text-purple-600" />
+                              <span>Ficha GEM</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Situação / Nível */}
+                      <td className="py-2.5 px-4 whitespace-nowrap">
+                        <span className={`inline-block text-xs px-2.5 py-1 rounded-full border ${nivelBadgeStyle}`}>
+                          {nivelAtual}
+                        </span>
+                      </td>
+
+                      {/* Atuação nos Serviços */}
+                      <td className="py-2.5 px-4">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {item.ensaios && (
+                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200/80">
+                              Ensaios
+                            </span>
+                          )}
+                          {item.rjm && (
+                            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200/80">
+                              RJM
+                            </span>
+                          )}
+                          {item.meiaHora && (
+                            <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200/80">
+                              Meia Hora
+                            </span>
+                          )}
+                          {item.cultosOficiais && (
+                            <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200/80">
+                              Cultos Oficiais
+                            </span>
+                          )}
+                          {!item.ensaios && !item.rjm && !item.meiaHora && !item.cultosOficiais && (
+                            <span className="text-slate-300 font-light text-xs">—</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Telefone */}
+                      <td className="py-2.5 px-4 whitespace-nowrap">
+                        {item.telefone ? (
+                          <a
+                            href={`tel:${item.telefone}`}
+                            className="font-semibold text-slate-700 hover:text-blue-600 text-xs flex items-center gap-1.5 transition"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{item.telefone}</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-300 font-light text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          {alunoGem && onOpenAlunoLancamento && (
+                            <button
+                              onClick={() => onOpenAlunoLancamento(alunoGem)}
+                              title="Lançar Lição ou Histórico no GEM"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-purple-50 text-slate-500 hover:text-purple-700 transition"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {!readOnly && onEditClick && (
+                            <button
+                              onClick={() => onEditClick(item)}
+                              title="Editar"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-700 transition"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {!readOnly && onDeleteClick && (
+                            <button
+                              onClick={() => onDeleteClick(item)}
+                              title="Excluir"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* MODO 2: VISÃO PLANILHA CCB (COLUNAS INDIVIDUAIS DE S/N COMPACTAS) */}
+      {modoVisualizacao === 'planilha' && (
+        <div className="hidden md:block print:block overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px] uppercase tracking-wider font-extrabold sticky top-0 z-10 backdrop-blur-xs">
+                <th onClick={() => handleSort('instrumento')} className="py-2.5 px-3 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap">
+                  <span>Instrumento</span>
+                </th>
+                <th onClick={() => handleSort('nome')} className="py-2.5 px-3 cursor-pointer hover:bg-slate-100 transition min-w-[180px]">
+                  <span>Integrante</span>
+                </th>
+                <th onClick={() => handleSort('nivel')} className="py-2.5 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap">
+                  <span>Nível</span>
+                </th>
+                <th className="py-2.5 px-1.5 text-center w-12" title="Ensaios">Ens.</th>
+                <th className="py-2.5 px-1.5 text-center w-12" title="Reunião de Jovens e Menores">RJM</th>
+                <th className="py-2.5 px-1.5 text-center w-14" title="Meia Hora">Meia H.</th>
+                <th className="py-2.5 px-1.5 text-center w-14" title="Cultos Oficiais">Cultos</th>
+                <th className="py-2.5 px-1.5 text-center w-12" title="Oficializado">Ofic.</th>
+                <th className="py-2.5 px-1.5 text-center w-12" title="Batizado">Bat.</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Telefone</th>
+                <th className="py-2.5 px-3 text-right whitespace-nowrap w-20">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredAndSorted.map(item => {
+                const alunoGem = item.alunoGemRef || getAlunoGem(item);
+                const rawNivel = item.nivel || nivelFromFlags(item);
+                const nivelAtual = rawNivel === 'RJM OFICIALIZADO' ? 'RJM / OFIC.' : rawNivel;
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">
+                      {item.instrumento}
+                    </td>
+                    <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                      {item.nomeFormatado}
+                    </td>
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                        {nivelAtual}
+                      </span>
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.ensaios ? <span className="font-bold text-blue-700">S</span> : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.rjm ? <span className="font-bold text-indigo-700">S</span> : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.meiaHora ? <span className="font-bold text-purple-700">S</span> : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.cultosOficiais ? <span className="font-bold text-teal-700">S</span> : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.oficializado ? <span className="font-bold text-emerald-700">S</span> : <span className="text-slate-400">N</span>}
+                    </td>
+                    <td className="py-2 px-1.5 text-center">
+                      {item.batizado ? <span className="font-bold text-slate-700">S</span> : <span className="text-rose-700">N</span>}
+                    </td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
+                      {item.telefone || '—'}
+                    </td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
+                        {!readOnly && onEditClick && (
+                          <button onClick={() => onEditClick(item)} className="p-1 hover:text-blue-600">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {!readOnly && onDeleteClick && (
+                          <button onClick={() => onDeleteClick(item)} className="p-1 hover:text-red-600 text-slate-400">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* VISÃO EM CARTÕES RESPONSIVA (CELULAR) */}
+      <div className="md:hidden p-3 space-y-2 bg-slate-50/50 print:hidden">
         {filteredAndSorted.length === 0 ? (
-          <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300 p-6">
-            <p className="text-slate-400 font-semibold text-sm">Nenhum integrante encontrado com os filtros selecionados.</p>
+          <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300 p-4">
+            <p className="text-slate-400 font-semibold text-xs">Nenhum integrante encontrado.</p>
           </div>
         ) : (
           filteredAndSorted.map(item => {
@@ -625,11 +900,10 @@ export default function UnifiedTable({
             return (
               <div 
                 key={item.id} 
-                className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs space-y-2.5 hover:border-blue-200 transition"
+                className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs space-y-2"
               >
-                {/* Header do Card: Instrumento + Naipe e Nível */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg">
                     <span className={`w-2 h-2 rounded-full ${corNaipeDot}`}></span>
                     {item.instrumento}
                   </span>
@@ -638,13 +912,12 @@ export default function UnifiedTable({
                   </span>
                 </div>
 
-                {/* Nome do Integrante e Telefone */}
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm leading-snug">{item.nome}</h4>
+                  <h4 className="font-bold text-slate-900 text-sm leading-snug">{item.nomeFormatado}</h4>
                   {item.telefone && (
                     <a 
                       href={`tel:${item.telefone}`} 
-                      className="inline-flex items-center gap-1 text-xs text-blue-600 font-semibold mt-1"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 font-semibold mt-0.5"
                     >
                       <Phone className="w-3 h-3 text-blue-500" />
                       <span>{item.telefone}</span>
@@ -652,27 +925,23 @@ export default function UnifiedTable({
                   )}
                 </div>
 
-                {/* Pílulas de Atuação nos Serviços */}
                 <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-100">
-                  {item.ensaios && <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">Ensaio</span>}
-                  {item.rjm && <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200">RJM</span>}
-                  {item.meiaHora && <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">Meia Hora</span>}
-                  {item.cultosOficiais && <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded border border-teal-200">Cultos</span>}
+                  {item.ensaios && <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-200">Ensaio</span>}
+                  {item.rjm && <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">RJM</span>}
+                  {item.meiaHora && <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200">Meia Hora</span>}
+                  {item.cultosOficiais && <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-1.5 py-0.2 rounded border border-teal-200">Cultos</span>}
                   {item.oficializado ? (
-                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">Oficializado</span>
-                  ) : (
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Não Ofic.</span>
-                  )}
+                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200">Ofic.</span>
+                  ) : null}
                 </div>
 
-                {/* Rodapé com Ações */}
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400">CCB Rui Barbosa</span>
                   <div className="flex items-center gap-1.5">
                     {alunoGem && onOpenAlunoFicha && (
                       <button 
                         onClick={() => onOpenAlunoFicha(alunoGem)} 
-                        className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold flex items-center gap-1"
+                        className="px-2 py-0.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold flex items-center gap-1"
                       >
                         <BookOpen className="w-3 h-3" />
                         <span>Ficha</span>
@@ -681,7 +950,7 @@ export default function UnifiedTable({
                     {!readOnly && onEditClick && (
                       <button 
                         onClick={() => onEditClick(item)} 
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600"
+                        className="p-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600"
                         title="Editar"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -690,7 +959,7 @@ export default function UnifiedTable({
                     {!readOnly && onDeleteClick && (
                       <button 
                         onClick={() => onDeleteClick(item)} 
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600"
+                        className="p-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600"
                         title="Excluir"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -702,277 +971,6 @@ export default function UnifiedTable({
             );
           })
         )}
-      </div>
-
-      {/* TABELA PRINCIPAL OTIMIZADA PARA DESKTOP E IMPRESSÃO */}
-      <div className="hidden md:block print:block overflow-x-auto">
-        <table className="w-full text-left text-xs sm:text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px] uppercase tracking-wider font-extrabold sticky top-0 z-10 backdrop-blur-xs">
-              <th onClick={() => handleSort('instrumento')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap">
-                <div className="flex items-center gap-1.5">
-                  <span>Instrumento</span>
-                  {getSortIcon('instrumento')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('nome')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition min-w-[200px]">
-                <div className="flex items-center gap-1.5">
-                  <span>Integrante</span>
-                  {getSortIcon('nome')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('nivel')} className="py-3 px-3 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap">
-                <div className="flex items-center justify-center gap-1.5">
-                  <span>Situação / Nível</span>
-                  {getSortIcon('nivel')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('ensaios')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-16" title="Toca nos Ensaios">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>Ens.</span>
-                  {getSortIcon('ensaios')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('rjm')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-16" title="Reunião de Jovens e Menores">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>RJM</span>
-                  {getSortIcon('rjm')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('meiaHora')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-20" title="Toca na Meia Hora (Irmãs)">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>Meia H.</span>
-                  {getSortIcon('meiaHora')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('cultosOficiais')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-18" title="Cultos Oficiais">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>Cultos</span>
-                  {getSortIcon('cultosOficiais')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('oficializado')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-16" title="Oficializado">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>Ofic.</span>
-                  {getSortIcon('oficializado')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('batizado')} className="py-3 px-2 text-center cursor-pointer hover:bg-slate-100 transition whitespace-nowrap w-16" title="Batizado">
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>Bat.</span>
-                  {getSortIcon('batizado')}
-                </div>
-              </th>
-              <th onClick={() => handleSort('telefone')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition whitespace-nowrap">
-                <div className="flex items-center gap-1.5">
-                  <span>Telefone</span>
-                  {getSortIcon('telefone')}
-                </div>
-              </th>
-              <th className="py-3 px-4 text-right whitespace-nowrap w-24">
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {filteredAndSorted.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="py-12 text-center text-slate-400 font-semibold">
-                  Nenhum integrante encontrado com os filtros selecionados.
-                </td>
-              </tr>
-            ) : (
-              filteredAndSorted.map(item => {
-                const alunoGem = item.alunoGemRef || getAlunoGem(item);
-                const rawNivel = item.nivel || nivelFromFlags(item);
-                const nivelAtual = rawNivel === 'RJM OFICIALIZADO' ? 'RJM / OFICIALIZADO' : rawNivel;
-
-                let nivelBadgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
-                if (nivelAtual === 'OFICIALIZADO') nivelBadgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold';
-                else if (nivelAtual === 'RJM / OFICIALIZADO') nivelBadgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold';
-                else if (nivelAtual.includes('CULTO')) nivelBadgeStyle = 'bg-teal-50 text-teal-800 border-teal-200 font-bold';
-                else if (nivelAtual.includes('RJM')) nivelBadgeStyle = 'bg-amber-50 text-amber-800 border-amber-200 font-bold';
-                else if (nivelAtual === 'ENSAIO') nivelBadgeStyle = 'bg-blue-50 text-blue-800 border-blue-200 font-bold';
-                else if (nivelAtual === 'CANDIDATO(A)') nivelBadgeStyle = 'bg-purple-50 text-purple-800 border-purple-200 font-bold';
-
-                const corNaipeDot = 
-                  item.naipe === 'Cordas' ? 'bg-blue-500' :
-                  item.naipe === 'Madeiras' ? 'bg-emerald-500' :
-                  item.naipe === 'Metais' ? 'bg-amber-500' : 'bg-purple-500';
-
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
-                    {/* Instrumento */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${corNaipeDot}`} />
-                        <div>
-                          <span className="font-extrabold text-slate-900 text-xs sm:text-sm block leading-tight">
-                            {item.instrumento}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                            {item.naipe}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Nome do Integrante */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          onClick={() => {
-                            if (alunoGem && onOpenAlunoFicha) onOpenAlunoFicha(alunoGem);
-                            else if (onEditClick) onEditClick(item);
-                          }}
-                          className="font-bold text-slate-900 text-sm hover:text-blue-700 cursor-pointer transition"
-                          title={alunoGem ? `Abrir ficha de ${item.nome}` : `Editar ${item.nome}`}
-                        >
-                          {item.nome}
-                        </span>
-                        {alunoGem && (
-                          <button
-                            onClick={() => onOpenAlunoFicha && onOpenAlunoFicha(alunoGem)}
-                            className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded transition shadow-2xs"
-                            title="Ver Ficha Cadastral no GEM"
-                          >
-                            <BookOpen className="w-2.5 h-2.5 text-purple-600" />
-                            <span>Ficha GEM</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Situação / Nível */}
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <span className={`inline-block text-[11px] px-2.5 py-1 rounded-full border ${nivelBadgeStyle}`}>
-                        {nivelAtual}
-                      </span>
-                    </td>
-
-                    {/* Ensaios */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.ensaios ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-blue-50 text-blue-700 font-black text-xs border border-blue-200/70">
-                          S
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 font-light">—</span>
-                      )}
-                    </td>
-
-                    {/* RJM */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.rjm ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 font-black text-xs border border-indigo-200/70">
-                          S
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 font-light">—</span>
-                      )}
-                    </td>
-
-                    {/* Meia Hora */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.meiaHora ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-purple-50 text-purple-700 font-black text-xs border border-purple-200/70">
-                          S
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 font-light">—</span>
-                      )}
-                    </td>
-
-                    {/* Cultos Oficiais */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.cultosOficiais ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-teal-50 text-teal-700 font-black text-xs border border-teal-200/70">
-                          S
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 font-light">—</span>
-                      )}
-                    </td>
-
-                    {/* Oficializado */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.oficializado ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-600 text-white font-black text-xs shadow-2xs">
-                          S
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-slate-500 font-bold text-xs border border-slate-200">
-                          N
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Batizado */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
-                      {item.batizado ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
-                          S
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200">
-                          N
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Telefone */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {item.telefone ? (
-                        <a
-                          href={`tel:${item.telefone}`}
-                          className="font-semibold text-slate-700 hover:text-blue-600 text-xs flex items-center gap-1.5 transition"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{item.telefone}</span>
-                        </a>
-                      ) : (
-                        <span className="text-slate-300 font-light">—</span>
-                      )}
-                    </td>
-
-                    {/* Ações */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        {alunoGem && onOpenAlunoLancamento && (
-                          <button
-                            onClick={() => onOpenAlunoLancamento(alunoGem)}
-                            title="Lançar Lição ou Histórico no GEM"
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-purple-50 text-slate-500 hover:text-purple-700 transition"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {!readOnly && onEditClick && (
-                          <button
-                            onClick={() => onEditClick(item)}
-                            title="Editar"
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-700 transition"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {!readOnly && onDeleteClick && (
-                          <button
-                            onClick={() => onDeleteClick(item)}
-                            title="Excluir"
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
       </div>
     </div>
   );
