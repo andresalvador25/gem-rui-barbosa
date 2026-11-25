@@ -31,8 +31,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     verChamada: true,
     editarChamada: true,
     verPortalCandidato: false,
-    gerenciarAcessos: false,
-    gerenciarConfig: false
+    gerenciarAcessos: true,
+    gerenciarConfig: true
   },
   [ROLES.INSTRUTOR]: {
     verCorpoMusical: true,
@@ -211,7 +211,7 @@ export function getPermissoes(user) {
   const custom = user?.permissoes && typeof user.permissoes === 'object' ? user.permissoes : {};
   const merged = { ...base, ...custom };
 
-  if (isAdmin) {
+  if (isAdmin || isEncarregado) {
     merged.gerenciarAcessos = true;
     merged.gerenciarConfig = true;
   }
@@ -251,8 +251,8 @@ export function getPermissoes(user) {
     canEditChamada,
     canEditAulaMusical: canEditGem,
     canViewPortalCandidato,
-    canManageUsers: Boolean(merged.gerenciarAcessos || isAdmin),
-    canManageConfig: Boolean(merged.gerenciarConfig || isAdmin)
+    canManageUsers: Boolean(merged.gerenciarAcessos || isAdmin || isEncarregado),
+    canManageConfig: Boolean(merged.gerenciarConfig || isAdmin || isEncarregado)
   };
 }
 
@@ -291,7 +291,7 @@ export function installApiAuthInterceptor() {
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input, init = {}) => {
     const url = typeof input === 'string' ? input : input?.url || '';
-    if (url.startsWith('/api/')) {
+    if (url.startsWith('/api/') || url.includes('/api/')) {
       const token = getAuthToken();
       if (token) {
         const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});

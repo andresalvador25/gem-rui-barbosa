@@ -826,16 +826,19 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {permissoes.canManageUsers && pendentesCount > 0 && (
+              {permissoes.canManageUsers && (
                 <button
                   onClick={() => setIsPerfisModalOpen(true)}
-                  className="relative p-2 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200"
-                  title="Solicitações de acesso pendentes"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 border border-amber-400/50 text-amber-200 text-xs font-bold transition shadow-xs"
+                  title="Gestão de Acessos e Liberações"
                 >
                   <Shield className="w-4 h-4 text-amber-300" />
-                  <span className="absolute -top-1 -right-1 bg-amber-400 text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                    {pendentesCount}
-                  </span>
+                  <span className="hidden sm:inline">Acessos</span>
+                  {pendentesCount > 0 && (
+                    <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                      {pendentesCount}
+                    </span>
+                  )}
                 </button>
               )}
 
@@ -843,6 +846,7 @@ export default function App() {
                 onClick={loadData}
                 disabled={loading}
                 className={`p-2 rounded-xl bg-white/10 text-white ${loading ? 'animate-spin' : ''}`}
+                title="Sincronizar dados"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -873,16 +877,35 @@ export default function App() {
                     </p>
                   </div>
 
-                  {/* Botão Atualizar visível no Desktop */}
-                  <button
-                    onClick={loadData}
-                    disabled={loading}
-                    title="Sincronizar dados com o Supabase"
-                    className="hidden lg:flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition ml-4"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : ''}`} />
-                    <span>Sincronizar</span>
-                  </button>
+                  <div className="hidden lg:flex items-center gap-2 ml-4">
+                    {/* Botão Gestão de Acessos visível no Desktop */}
+                    {permissoes.canManageUsers && (
+                      <button
+                        onClick={() => setIsPerfisModalOpen(true)}
+                        title="Gerenciar usuários, perfis e aprovações"
+                        className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-xl transition shadow-2xs"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Gestão de Acessos</span>
+                        {pendentesCount > 0 && (
+                          <span className="bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                            {pendentesCount}
+                          </span>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Botão Atualizar visível no Desktop */}
+                    <button
+                      onClick={loadData}
+                      disabled={loading}
+                      title="Sincronizar dados com o Supabase"
+                      className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+                      <span>Sincronizar</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cards de Resumo Rápido (Grade 3 colunas compacta no celular) */}

@@ -331,8 +331,10 @@ function requireRoles(allowedRoles = []) {
     if (!req.user) {
       return res.status(401).json({ success: false, message: 'Autenticação necessária.' });
     }
-    const hasCustomAdmin = allowedRoles.includes('admin') && req.user.permissoes?.gerenciarAcessos === true;
-    if (allowedRoles.length > 0 && !allowedRoles.includes(req.user.role) && !hasCustomAdmin) {
+    const isAdminOrEncarregado =
+      (allowedRoles.includes('admin') || allowedRoles.includes('encarregado')) &&
+      (req.user.role === 'admin' || req.user.role === 'encarregado' || req.user.permissoes?.gerenciarAcessos === true);
+    if (allowedRoles.length > 0 && !allowedRoles.includes(req.user.role) && !isAdminOrEncarregado) {
       return res.status(403).json({ success: false, message: 'Seu perfil não possui permissão para esta ação.' });
     }
     next();
@@ -439,12 +441,12 @@ app.get('/api/auth/me', requireRoles([]), (req, res) => {
   res.json({ success: true, user: req.user });
 });
 
-app.get('/api/auth/users', requireRoles(['admin']), (req, res) => {
+app.get('/api/auth/users', requireRoles(['admin', 'encarregado']), (req, res) => {
   const users = getUsersData().map(sanitizeUser);
   res.json({ success: true, users });
 });
 
-app.post('/api/auth/users', requireRoles(['admin']), (req, res) => {
+app.post('/api/auth/users', requireRoles(['admin', 'encarregado']), (req, res) => {
   const {
     id,
     nome,
@@ -547,7 +549,7 @@ app.post('/api/auth/users', requireRoles(['admin']), (req, res) => {
   res.json({ success: true, user: sanitizeUser(novo) });
 });
 
-app.delete('/api/auth/users/:id', requireRoles(['admin']), (req, res) => {
+app.delete('/api/auth/users/:id', requireRoles(['admin', 'encarregado']), (req, res) => {
   const id = Number(req.params.id) || req.params.id;
   if (String(req.user.id) === String(id)) {
     return res.status(400).json({ success: false, message: 'Você não pode excluir o próprio usuário conectado.' });

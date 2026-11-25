@@ -21,7 +21,9 @@ import {
   PERMISSION_LABELS,
   getRoleMeta,
   getDefaultPermissionsForRole,
-  getUserAlunoIds
+  getUserAlunoIds,
+  getAuthToken,
+  clearAuthSession
 } from '../utils/auth.js';
 
 export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUser, onUsersChanged }) {
@@ -87,13 +89,19 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
     setLoading(true);
     setErro('');
     try {
-      const res = await fetch('/api/auth/users');
+      const token = getAuthToken();
+      const res = await fetch('/api/auth/users', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
       const json = await res.json();
       if (res.ok && json.users) {
         setUsers(json.users);
         if (onUsersChanged) onUsersChanged(json.users);
       } else {
-        setErro(json.message || 'Erro ao carregar usuários.');
+        setErro(json.message || 'Erro ao carregar usuários. Verifique se está autenticado.');
       }
     } catch {
       setErro('Não foi possível conectar ao servidor.');
@@ -193,9 +201,13 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
         alunoIds: form.alunoIds,
         permissoes: form.permissoes
       };
+      const token = getAuthToken();
       const res = await fetch('/api/auth/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(payload)
       });
       const json = await res.json();
@@ -220,7 +232,11 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
     setErro('');
     setSucesso('');
     try {
-      const res = await fetch(`/api/auth/users/${u.id}`, { method: 'DELETE' });
+      const token = getAuthToken();
+      const res = await fetch(`/api/auth/users/${u.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       const json = await res.json();
       if (!res.ok || !json.success) {
         setErro(json.message || 'Erro ao excluir.');
@@ -355,9 +371,30 @@ export default function PerfisModal({ isOpen, onClose, alunosGem = [], currentUs
         {/* Conteúdo */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
           {erro && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-xl flex items-center gap-2 font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{erro}</span>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl space-y-2 font-semibold">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+                <span>{erro}</span>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAuthSession();
+                    window.location.reload();
+                  }}
+                  className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg transition"
+                >
+                  Entrar com E-mail e Senha (ADM)
+                </button>
+                <button
+                  type="button"
+                  onClick={carregarUsers}
+                  className="text-xs bg-white border border-red-300 hover:bg-red-50 text-red-700 font-bold px-3 py-1.5 rounded-lg transition"
+                >
+                  Tentar Novamente
+                </button>
+              </div>
             </div>
           )}
           {sucesso && (
