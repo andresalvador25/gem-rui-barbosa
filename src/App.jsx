@@ -449,14 +449,29 @@ export default function App() {
     }
   };
 
-  // Indicadores gerais
-  const total = data.integrantes.length;
-  const gemApenasCount = alunosGem.filter(a => !data.integrantes.some(i => isSamePerson(i, a))).length;
+  // Helper para garantir apenas integrantes de Vila Rui Barbosa no Corpo Musical
+  const isFromRuiBarbosa = (item) => {
+    const comum = (item?.comum || '').toUpperCase().trim();
+    if (!comum) return true;
+    return comum.includes('RUI BARBOSA') || comum.includes('VRB');
+  };
+
+  const integrantesRuiBarbosa = useMemo(() => {
+    return (data.integrantes || []).filter(isFromRuiBarbosa);
+  }, [data.integrantes]);
+
+  const alunosGemRuiBarbosa = useMemo(() => {
+    return (alunosGem || []).filter(isFromRuiBarbosa);
+  }, [alunosGem]);
+
+  // Indicadores gerais (exclusivos de Vila Rui Barbosa)
+  const total = integrantesRuiBarbosa.length;
+  const gemApenasCount = alunosGemRuiBarbosa.filter(a => !integrantesRuiBarbosa.some(i => isSamePerson(i, a))).length;
   const totalUnificadoCount = total + gemApenasCount;
-  const musicosCount = data.integrantes.filter(i => i.categoria === 'Músico').length;
-  const organistasCount = data.integrantes.filter(i => i.categoria === 'Organista').length;
-  const oficializadosCount = data.integrantes.filter(i => i.oficializado === true).length;
-  const alunosCount = data.integrantes.filter(i => !i.oficializado).length;
+  const musicosCount = integrantesRuiBarbosa.filter(i => i.categoria === 'Músico').length;
+  const organistasCount = integrantesRuiBarbosa.filter(i => i.categoria === 'Organista').length;
+  const oficializadosCount = integrantesRuiBarbosa.filter(i => i.oficializado === true).length;
+  const alunosCount = integrantesRuiBarbosa.filter(i => !i.oficializado).length;
 
   if (!currentUser && authChecked) {
     return (
@@ -896,13 +911,13 @@ export default function App() {
                   {subTabCorpo === 'integrantes' ? (
                     <div className="space-y-4 sm:space-y-6">
                       <NaipeCards
-                        integrantes={data.integrantes}
+                        integrantes={integrantesRuiBarbosa}
                         activeNaipeFilter={activeNaipeFilter}
                         onSelectNaipe={setActiveNaipeFilter}
                       />
                       <UnifiedTable
-                        integrantes={data.integrantes}
-                        alunosGem={alunosGem}
+                        integrantes={integrantesRuiBarbosa}
+                        alunosGem={alunosGemRuiBarbosa}
                         readOnly={!permissoes.canEditCorpoMusical}
                         onOpenAlunoFicha={(aluno) => setModalAlunoGem(aluno)}
                         onOpenAlunoLancamento={(aluno) => setModalLancamentoGem(aluno)}
