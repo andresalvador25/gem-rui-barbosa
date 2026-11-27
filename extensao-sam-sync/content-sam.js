@@ -189,17 +189,17 @@ async function processarLoteLicoes(licoes) {
         inputData.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
-      // Campo Módulo
-      const selects = Array.from(document.querySelectorAll('.modal select, select'));
+      // Campo Módulo ou Método
       const selectModulo = selects.find(s => {
         const name = (s.name || s.id || '').toLowerCase();
-        return name.includes('modulo') || name.includes('fase');
+        return name.includes('modulo') || name.includes('fase') || name.includes('metodo') || name.includes('livro');
       }) || selects[0];
 
       if (selectModulo && selectModulo.options) {
-        const termoModulo = normalizar(item.modulo || item.faseDe || 'FASE 1');
+        const termoBusca = normalizar(item.metodo || item.modulo || item.faseDe || 'FASE 1');
         for (const opt of selectModulo.options) {
-          if (normalizar(opt.text).includes(termoModulo)) {
+          const optText = normalizar(opt.text);
+          if (optText.includes(termoBusca) || termoBusca.includes(optText)) {
             selectModulo.value = opt.value;
             selectModulo.dispatchEvent(new Event('change', { bubbles: true }));
             break;
@@ -207,23 +207,28 @@ async function processarLoteLicoes(licoes) {
         }
       }
 
-      // Campos Lições (de/até)
+      // Campos Lições / Páginas (de/até)
       const inputLicaoDe = inputs.find(inp => {
         const p = (inp.placeholder || inp.name || '').toLowerCase();
-        return p.includes('de') && !p.includes('ate');
+        return (p.includes('de') || p.includes('inicio') || p.includes('página') || p.includes('pagina')) && !p.includes('ate');
       });
       const inputLicaoAte = inputs.find(inp => {
         const p = (inp.placeholder || inp.name || '').toLowerCase();
-        return p.includes('ate') || p.includes('até');
+        return p.includes('ate') || p.includes('até') || p.includes('fim');
       });
 
-      if (inputLicaoDe && item.licaoDe) {
-        inputLicaoDe.value = item.licaoDe;
+      const valorDe = item.licaoDe || item.paginaDe || item.licao || '';
+      const valorAte = item.licaoAte || item.paginaAte || '';
+
+      if (inputLicaoDe && valorDe) {
+        inputLicaoDe.value = valorDe;
         inputLicaoDe.dispatchEvent(new Event('input', { bubbles: true }));
+        inputLicaoDe.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      if (inputLicaoAte && item.licaoAte) {
-        inputLicaoAte.value = item.licaoAte;
+      if (inputLicaoAte && valorAte) {
+        inputLicaoAte.value = valorAte;
         inputLicaoAte.dispatchEvent(new Event('input', { bubbles: true }));
+        inputLicaoAte.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
       // Campo Observações
