@@ -1008,6 +1008,7 @@ export default function App() {
                     <FichaAlunoGemView
                       canEdit={permissoes.canEditGem}
                       canDelete={permissoes.canDeleteGem}
+                      canSyncSam={permissoes.canManageUsers}
                       onRefresh={loadData}
                     />
                   ) : subTabGem === 'presenca' ? (

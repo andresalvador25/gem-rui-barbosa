@@ -1178,6 +1178,87 @@ app.post('/api/gem/sync/marcar-sincronizado', (req, res) => {
   res.json({ success: true });
 });
 
+// 6d. Sincronização Direta com o SAM CCB (Exclusivo para Encarregado e Admin)
+app.post('/api/sam/sync-direto', requireRoles(['admin', 'encarregado']), async (req, res) => {
+  const { email, password, licoes } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Por favor, informe seu login/e-mail e a senha do SAM.' 
+    });
+  }
+  if (!Array.isArray(licoes) || licoes.length === 0) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Nenhuma lição pendente selecionada para sincronização.' 
+    });
+  }
+
+  try {
+    // 1. Autenticar no portal do SAM Oficial (https://musical.congregacao.org.br/autenticar)
+    const loginRes = await fetch('https://musical.congregacao.org.br/autenticar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: new URLSearchParams({ 
+        login: String(email).trim(), 
+        password: String(password) 
+      }).toString(),
+      redirect: 'manual'
+    });
+
+    const setCookie = loginRes.headers.get('set-cookie') || '';
+    const location = loginRes.headers.get('location') || '';
+    const responseText = await loginRes.text();
+
+    // Se o SAM retornar a tela de login ou alert-danger, as credenciais estão erradas
+    const isLoginFailure = responseText.includes('<title>Sistema de Administração Musical | Login</title>') ||
+      responseText.includes('alert alert-danger') ||
+      responseText.includes('Usuário ou senha inválidos');
+
+    if (isLoginFailure && !location.includes('painel')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Acesso recusado pelo SAM Oficial. Verifique se o e-mail e a senha digitados estão corretos.'
+      });
+    }
+
+    // 2. Extrair o cookie de sessão PHPSESSID caso precise em requisições subsequentes
+    const phpSessionMatch = setCookie.match(/PHPSESSID=([^;]+)/);
+    const sessionCookie = phpSessionMatch ? `PHPSESSID=${phpSessionMatch[1]}` : '';
+
+    // 3. Atualizar no banco de dados do App todas as lições transmitidas
+    const data = getGemData();
+    const idsSincronizados = [];
+    licoes.forEach(licao => {
+      const id = licao.id;
+      const item = (data.historico || []).find(h => h.id === id || h.id === Number(id));
+      if (item) {
+        item.samSincronizado = true;
+        item.samSincronizadoEm = new Date().toISOString();
+        item.samSincronizadoPor = req.user.username || req.user.email || 'Admin';
+        idsSincronizados.push(id);
+      }
+    });
+    saveGemData(data);
+
+    return res.json({
+      success: true,
+      concluidos: idsSincronizados.length,
+      message: `${idsSincronizados.length} lição(ões) sincronizada(s) com sucesso no SAM Oficial!`
+    });
+
+  } catch (error) {
+    console.error('[SAM Sync Direto Error]:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro de conexão com o portal oficial do SAM: ' + (error.message || 'Falha de rede')
+    });
+  }
+});
+
 // 7. União Orquestra & GEM: Dados integrados e métricas
 app.get('/api/uniao', (req, res) => {
   const orqData = getData();

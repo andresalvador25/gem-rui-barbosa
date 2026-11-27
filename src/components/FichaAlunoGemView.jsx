@@ -23,7 +23,12 @@ import LancamentoHistoricoModal from './LancamentoHistoricoModal.jsx';
 import HistoricoAlunoView from './HistoricoAlunoView.jsx';
 import SamSyncGemModal from './SamSyncGemModal.jsx';
 
-export default function FichaAlunoGemView({ canEdit = true, canDelete = true, onRefresh }) {
+export default function FichaAlunoGemView({ 
+  canEdit = true, 
+  canDelete = true, 
+  canSyncSam = false, 
+  onRefresh 
+}) {
   const [alunos, setAlunos] = useState([]);
   const [selectedAlunoId, setSelectedAlunoId] = useState(null);
   const [historico, setHistorico] = useState([]);
@@ -243,7 +248,7 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
           </div>
 
           <div className="flex items-center gap-2">
-            {canEdit && (
+            {canSyncSam && (
               <button
                 onClick={() => {
                   setSamSyncMode('todos');
@@ -399,8 +404,8 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
                     </div>
                   </div>
 
-                  {canEdit && (
-                    <div className="flex items-center gap-2 no-print">
+                  <div className="flex items-center gap-2 no-print">
+                    {canSyncSam && (
                       <button
                         onClick={() => {
                           setSamSyncMode('aluno');
@@ -412,7 +417,9 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
                         <Bot className="w-3.5 h-3.5 text-sky-600" />
                         <span>Sincronizar no SAM</span>
                       </button>
+                    )}
 
+                    {canEdit && (
                       <button
                         onClick={() => {
                           setAlunoEditando(alunoAtual);
@@ -423,8 +430,8 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Editar Cadastro</span>
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Grid com Todos os Campos do Cadastro (Exatos da Imagem 1) */}
@@ -588,7 +595,7 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
                 </button>
               )}
 
-              {canEdit && (
+              {canSyncSam && (
                 <button
                   type="button"
                   onClick={() => {
