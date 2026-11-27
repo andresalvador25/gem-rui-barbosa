@@ -15,11 +15,13 @@ import {
   ChevronRight,
   Database,
   Sparkles,
-  Info
+  Info,
+  Bot
 } from 'lucide-react';
 import AlunoGemModal from './AlunoGemModal.jsx';
 import LancamentoHistoricoModal from './LancamentoHistoricoModal.jsx';
 import HistoricoAlunoView from './HistoricoAlunoView.jsx';
+import SamSyncGemModal from './SamSyncGemModal.jsx';
 
 export default function FichaAlunoGemView({ canEdit = true, canDelete = true, onRefresh }) {
   const [alunos, setAlunos] = useState([]);
@@ -34,6 +36,10 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
 
   const [isModalLancamentoOpen, setIsModalLancamentoOpen] = useState(false);
   const [lancamentoEditando, setLancamentoEditando] = useState(null);
+
+  // Sincronizador Robô SAM
+  const [isSamSyncModalOpen, setIsSamSyncModalOpen] = useState(false);
+  const [samSyncMode, setSamSyncMode] = useState('todos'); // 'todos' | 'aluno'
 
   // Modal Mobile Exclusivo para Tarefas & Lições do Candidato
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
@@ -240,6 +246,20 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
             {canEdit && (
               <button
                 onClick={() => {
+                  setSamSyncMode('todos');
+                  setIsSamSyncModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-sky-600 to-indigo-700 hover:from-sky-500 hover:to-indigo-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-md border border-sky-400/30"
+                title="Sincronizar lições lançadas com o SAM Oficial"
+              >
+                <Bot className="w-4 h-4 text-sky-200" />
+                <span>Sincronizar SAM</span>
+              </button>
+            )}
+
+            {canEdit && (
+              <button
+                onClick={() => {
                   setAlunoEditando(null);
                   setIsModalAlunoOpen(true);
                 }}
@@ -381,6 +401,18 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
 
                   {canEdit && (
                     <div className="flex items-center gap-2 no-print">
+                      <button
+                        onClick={() => {
+                          setSamSyncMode('aluno');
+                          setIsSamSyncModalOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 bg-sky-50 border border-sky-300 hover:bg-sky-100 text-sky-800 text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-xs"
+                        title="Sincronizar apenas as lições deste aluno com o SAM"
+                      >
+                        <Bot className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Sincronizar no SAM</span>
+                      </button>
+
                       <button
                         onClick={() => {
                           setAlunoEditando(alunoAtual);
@@ -560,6 +592,21 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
                 <button
                   type="button"
                   onClick={() => {
+                    setSamSyncMode('aluno');
+                    setIsSamSyncModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 bg-sky-50 border border-sky-300 hover:bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-2.5 rounded-xl transition"
+                  title="Sincronizar no SAM"
+                >
+                  <Bot className="w-3.5 h-3.5 text-sky-600" />
+                  <span>SAM</span>
+                </button>
+              )}
+
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
                     setAlunoEditando(alunoAtual);
                     setIsModalAlunoOpen(true);
                   }}
@@ -663,6 +710,19 @@ export default function FichaAlunoGemView({ canEdit = true, canDelete = true, on
           itemToEdit={lancamentoEditando}
         />
       )}
+
+      {/* MODAL 3: ROBÔ SINCRONIZADOR COM O SAM OFICIAL CCB */}
+      <SamSyncGemModal
+        isOpen={isSamSyncModalOpen}
+        onClose={() => setIsSamSyncModalOpen(false)}
+        alunoAtual={samSyncMode === 'aluno' ? alunoAtual : null}
+        historicoAluno={samSyncMode === 'aluno' ? historico : []}
+        onSuccess={() => {
+          if (selectedAlunoId) carregarHistorico(selectedAlunoId);
+          carregarAlunos();
+          if (onRefresh) onRefresh();
+        }}
+      />
     </div>
   );
 }

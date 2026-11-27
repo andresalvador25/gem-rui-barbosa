@@ -1143,6 +1143,41 @@ app.delete('/api/gem/historico/:id', (req, res) => {
   res.json({ success: true, id });
 });
 
+// 6b. Histórico GEM: Listar todos os pendentes de envio ao SAM
+app.get('/api/gem/sync/pendentes', (req, res) => {
+  const data = getGemData();
+  const alunosMap = new Map((data.alunos || []).map(a => [a.id, a]));
+  const pendentes = (data.historico || [])
+    .filter(h => !h.samSincronizado)
+    .map(h => ({
+      ...h,
+      alunoNome: alunosMap.get(h.alunoId)?.nome || 'Aluno Desconhecido',
+      alunoInstrumento: alunosMap.get(h.alunoId)?.instrumento || ''
+    }))
+    .sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+  res.json({ success: true, pendentes });
+});
+
+// 6c. Histórico GEM: Marcar lançamentos como sincronizados com o SAM
+app.post('/api/gem/sync/marcar-sincronizado', (req, res) => {
+  const data = getGemData();
+  const { ids } = req.body || {};
+  if (Array.isArray(ids)) {
+    let alterado = false;
+    (data.historico || []).forEach(h => {
+      if (ids.includes(h.id) || ids.includes(Number(h.id))) {
+        h.samSincronizado = true;
+        h.samSincronizadoEm = new Date().toISOString();
+        alterado = true;
+      }
+    });
+    if (alterado) {
+      saveGemData(data);
+    }
+  }
+  res.json({ success: true });
+});
+
 // 7. União Orquestra & GEM: Dados integrados e métricas
 app.get('/api/uniao', (req, res) => {
   const orqData = getData();
