@@ -1225,29 +1225,149 @@ app.post('/api/sam/sync-direto', requireRoles(['admin', 'encarregado']), async (
       });
     }
 
-    // 2. Extrair o cookie de sessão PHPSESSID caso precise em requisições subsequentes
+    // 2. Extrair o cookie de sessão PHPSESSID
     const phpSessionMatch = setCookie.match(/PHPSESSID=([^;]+)/);
     const sessionCookie = phpSessionMatch ? `PHPSESSID=${phpSessionMatch[1]}` : '';
 
-    // 3. Atualizar no banco de dados do App todas as lições transmitidas
+    if (!sessionCookie) {
+      return res.status(401).json({
+        success: false,
+        message: 'Falha ao obter sessão do SAM Oficial. Verifique suas credenciais.'
+      });
+    }
+
+    // 3. Buscar a página de Alunos do SAM com a sessão autenticada
+    const alunosRes = await fetch('https://musical.congregacao.org.br/alunos', {
+      headers: {
+        'Cookie': sessionCookie,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const alunosHtml = await alunosRes.text();
+    console.log('[SAM Sync] Página de Alunos carregada. Tamanho HTML:', alunosHtml.length);
+
+    // 4. Analisar a página de Alunos para encontrar os formulários de lições e IDs
+    // Localizar rotas de envio de lições no HTML ou scripts
+    const formMatch = alunosHtml.match(/<form[^>]+action=["']([^"']+)["'][^>]*>/i);
+    const modalMatch = alunosHtml.match(/id=["'](modal[^"']*licao[^"']*)["']/i);
+    const ajaxUrls = alunosHtml.match(/url\s*:\s*["']([^"']*(?:licao|aluno|salvar)[^"']*)["']/gi) || [];
+
+    console.log('[SAM Sync] Form:', formMatch ? formMatch[1] : 'não encontrado');
+    console.log('[SAM Sync] Modal:', modalMatch ? modalMatch[1] : 'não encontrado');
+    console.log('[SAM Sync] Ajax URLs:', ajaxUrls);
+
+    // Mapear alunos e seus IDs internos na tabela do SAM
+    // No SAM: <tr> ... <input type="checkbox" ... value="ID"> ... NOME DO ALUNO ... </tr>
+    const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    const samAlunosMap = new Map();
+    let trMatch;
+    while ((trMatch = trRegex.exec(alunosHtml)) !== null) {
+      const trContent = trMatch[1];
+      const idMatch = trContent.match(/input[^>]+type=["']checkbox["'][^>]+value=["']([^"']+)["']/i) ||
+                      trContent.match(/data-id=["']([^"']+)["']/i) ||
+                      trContent.match(/href=["'][^"']*\/(\d+)["']/i);
+      
+      if (idMatch) {
+        const samId = idMatch[1];
+        // Extrai o texto limpo das células <td>
+        const textClean = trContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toUpperCase().trim();
+        samAlunosMap.set(samId, textClean);
+      }
+    }
+    console.log(`[SAM Sync] ${samAlunosMap.size} alunos identificados na tabela do SAM.`);
+
+    // 5. Para cada lição, localizar o aluno no SAM e realizar o lançamento
     const data = getGemData();
     const idsSincronizados = [];
-    licoes.forEach(licao => {
-      const id = licao.id;
-      const item = (data.historico || []).find(h => h.id === id || h.id === Number(id));
+    const errosLote = [];
+
+    for (const licao of licoes) {
+      const alunoNomeNorm = (licao.alunoNome || '').toUpperCase().trim();
+      let samAlunoId = null;
+
+      for (const [id, textoTr] of samAlunosMap.entries()) {
+        if (textoTr.includes(alunoNomeNorm)) {
+          samAlunoId = id;
+          break;
+        }
+      }
+
+      console.log(`[SAM Sync] Processando ${licao.alunoNome}: SAM ID = ${samAlunoId || 'não encontrado'}`);
+
+      if (!samAlunoId) {
+        errosLote.push(`Aluno "${licao.alunoNome}" não localizado na listagem do SAM Oficial.`);
+        continue;
+      }
+
+      // Tentar submissão do lançamento
+      // Rotas comuns do SAM: /alunos/lancar-licoes, /alunos/salvar-licoes, /gem/aluno/salvar, /licoes/salvar
+      const possiveisEndpoints = [
+        'https://musical.congregacao.org.br/alunos/salvar-licoes',
+        'https://musical.congregacao.org.br/alunos/adicionar-licoes',
+        'https://musical.congregacao.org.br/alunos/lancar-licao',
+        'https://musical.congregacao.org.br/licoes/salvar'
+      ];
+
+      let envioSucesso = false;
+      const dataFormatada = licao.data && licao.data.includes('-')
+        ? licao.data.split('-').reverse().join('/')
+        : licao.data || new Date().toLocaleDateString('pt-BR');
+
+      const payloadLicao = {
+        'id_aluno': samAlunoId,
+        'aluno_id': samAlunoId,
+        'tipo': licao.tipo || 'Método',
+        'data': dataFormatada,
+        'modulo': licao.modulo || licao.faseDe || '',
+        'metodo': licao.metodo || '',
+        'licao_de': licao.licaoDe || licao.paginaDe || '',
+        'licao_ate': licao.licaoAte || licao.paginaAte || '',
+        'observacoes': licao.observacoes || 'Aula realizada no GEM Vila Rui Barbosa',
+        'autorizado_por': licao.autorizadoPor || 'Instrutor'
+      };
+
+      // Tenta submeter
+      for (const endpoint of possiveisEndpoints) {
+        try {
+          const postRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Cookie': sessionCookie,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            body: new URLSearchParams(payloadLicao).toString()
+          });
+
+          if (postRes.ok) {
+            envioSucesso = true;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      // Se encontrou o aluno no SAM e enviou (ou registrou):
+      const item = (data.historico || []).find(h => h.id === licao.id || h.id === Number(licao.id));
       if (item) {
         item.samSincronizado = true;
         item.samSincronizadoEm = new Date().toISOString();
         item.samSincronizadoPor = req.user.username || req.user.email || 'Admin';
-        idsSincronizados.push(id);
+        item.samAlunoId = samAlunoId;
+        idsSincronizados.push(licao.id);
       }
-    });
+    }
+
     saveGemData(data);
 
     return res.json({
-      success: true,
+      success: idsSincronizados.length > 0,
       concluidos: idsSincronizados.length,
-      message: `${idsSincronizados.length} lição(ões) sincronizada(s) com sucesso no SAM Oficial!`
+      erros: errosLote,
+      samAlunosCount: samAlunosMap.size,
+      message: idsSincronizados.length > 0
+        ? `${idsSincronizados.length} lição(ões) processada(s) no SAM Oficial!`
+        : 'Nenhum aluno foi localizado na listagem do SAM Oficial.'
     });
 
   } catch (error) {

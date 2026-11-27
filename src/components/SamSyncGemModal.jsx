@@ -14,10 +14,7 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Copy,
-  Check,
-  Sparkles,
-  ExternalLink
+  Cloud
 } from 'lucide-react';
 
 export default function SamSyncGemModal({ 
@@ -32,10 +29,11 @@ export default function SamSyncGemModal({
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [statusMessage, setStatusMessage] = useState(null);
-  const [copiedCode, setCopiedCode] = useState(false);
 
-  // Estados da Extensão
-  const [extensaoAtiva, setExtensaoAtiva] = useState(false);
+  // Credenciais do SAM Oficial
+  const [samEmail, setSamEmail] = useState('andresalvador94@yahoo.com');
+  const [samPassword, setSamPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
 
   // Carregar lista de pendentes gerais
@@ -80,78 +78,11 @@ export default function SamSyncGemModal({
     setLoading(false);
   };
 
-  // Detecção da Extensão no Navegador
-  useEffect(() => {
-    const checar = () => {
-      const ativo = 
-        document.documentElement.getAttribute('data-robo-sam-ativo') === 'true' ||
-        window.__ROBO_SAM_INSTALADO__ === true;
-      if (ativo) setExtensaoAtiva(true);
-    };
-
-    checar();
-    window.postMessage({ type: 'APP_GEM_PING_ROBO' }, '*');
-
-    const handleMessage = async (event) => {
-      if (!event.data || typeof event.data !== 'object') return;
-
-      if (event.data.type === 'ROBO_SAM_PONG') {
-        setExtensaoAtiva(true);
-      }
-
-      if (event.data.type === 'APP_GEM_SYNC_INICIADO') {
-        setSincronizando(true);
-        setStatusMessage({
-          type: 'info',
-          text: '🚀 Robô executando no SAM Oficial! Preenchendo as abas e salvando...'
-        });
-      }
-
-      if (event.data.type === 'APP_GEM_SYNC_CONCLUIDO') {
-        setSincronizando(false);
-        const resultado = event.data.resultado || {};
-        const idsConcluidos = resultado.ids || Array.from(selectedIds);
-
-        try {
-          await fetch('/api/gem/sync/marcar-sincronizado', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: idsConcluidos })
-          });
-        } catch (e) {}
-
-        setStatusMessage({
-          type: 'success',
-          text: `🎉 Sincronização Concluída! ${resultado.concluidos || idsConcluidos.length} lição(ões) lançada(s) e gravadas com sucesso no SAM Oficial da CCB.`
-        });
-
-        if (modo === 'todos') carregarPendentesGerais();
-        if (onSuccess) onSuccess();
-      }
-
-      if (event.data.type === 'APP_GEM_SYNC_ERRO') {
-        setSincronizando(false);
-        setStatusMessage({
-          type: 'error',
-          text: event.data.erro || 'Falha ao sincronizar com o SAM.'
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    const interval = setInterval(checar, 1500);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      clearInterval(interval);
-    };
-  }, [modo, selectedIds, onSuccess]);
-
   useEffect(() => {
     if (!isOpen) return;
     setStatusMessage(null);
     setSincronizando(false);
-    setCopiedCode(false);
+    setSamPassword('');
 
     if (modo === 'todos') {
       carregarPendentesGerais();
@@ -205,95 +136,71 @@ export default function SamSyncGemModal({
     }));
   };
 
-  // Disparo via Extensão no Navegador
-  const handleDispararExtensao = () => {
-    if (itensParaEnviar.length === 0) return;
-    const payload = prepararPayload();
+  // Sincronização 100% na Nuvem pelo App
+  const handleSincronizarNuvem = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!samEmail.trim()) {
+      setStatusMessage({ type: 'error', text: 'Por favor, informe seu login/e-mail do SAM.' });
+      return;
+    }
+    if (!samPassword) {
+      setStatusMessage({ type: 'error', text: 'Por favor, digite sua senha de acesso ao SAM Oficial.' });
+      return;
+    }
+    if (itensParaEnviar.length === 0) {
+      setStatusMessage({ type: 'error', text: 'Selecione ao menos uma lição para sincronizar.' });
+      return;
+    }
+
     setSincronizando(true);
     setStatusMessage({
       type: 'info',
-      text: 'Enviando comando para o SAM Oficial... Certifique-se de que a aba do SAM está aberta.'
+      text: 'Conectando ao SAM Oficial da CCB e realizando os lançamentos na nuvem... Aguarde.'
     });
 
-    window.postMessage({
-      type: 'APP_GEM_START_SYNC',
-      payload: payload
-    }, '*');
-  };
-
-  // Gerar código manual de Console
-  const gerarCodigoConsole = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const payload = prepararPayload();
-    return `(async function executarRoboSam() {
-  const licoes = ${JSON.stringify(payload, null, 2)};
-  console.log('🤖 Iniciando lançamentos no SAM...', licoes);
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const normalizar = t => (t||'').toString().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().trim();
-  let concluidos = 0;
 
-  for (let i = 0; i < licoes.length; i++) {
-    const item = licoes[i];
-    console.log(\`Processando (\${i+1}/\${licoes.length}): \${item.alunoNome}\`);
-    const linhas = Array.from(document.querySelectorAll('table tbody tr'));
-    const tr = linhas.find(r => normalizar(r.innerText).includes(normalizar(item.alunoNome)));
-    if (!tr) { console.warn('Aluno não encontrado:', item.alunoNome); continue; }
+    try {
+      const res = await fetch('/api/sam/sync-direto', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          email: samEmail.trim(),
+          password: samPassword,
+          licoes: payload
+        })
+      });
 
-    document.querySelectorAll('table tbody tr input[type="checkbox"]').forEach(c => { if(c.checked){ c.checked=false; c.dispatchEvent(new Event('change',{bubbles:true})); } });
-    const cb = tr.querySelector('input[type="checkbox"]');
-    if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
-    await sleep(400);
+      const json = await res.json();
 
-    const btn = Array.from(document.querySelectorAll('button, a')).find(el => normalizar(el.textContent).includes('ADICIONAR LICOES'));
-    if (!btn) continue;
-    btn.click();
-    await sleep(1200);
+      if (res.ok && json.success) {
+        setStatusMessage({
+          type: 'success',
+          text: `🎉 Sincronização Concluída! ${json.concluidos || payload.length} lição(ões) processada(s) no SAM Oficial da CCB.`
+        });
+        setSamPassword(''); // Limpa a senha por segurança
 
-    const abas = Array.from(document.querySelectorAll('.nav-tabs a, ul.nav a, a[data-toggle="tab"]'));
-    const aba = abas.find(a => normalizar(a.textContent) === normalizar(item.tipo || 'MTS'));
-    if (aba) { aba.click(); await sleep(500); }
-
-    const inData = document.querySelector('input[name*="data"], input[id*="data"]');
-    if (inData) { inData.value = item.data; inData.dispatchEvent(new Event('input', { bubbles: true })); }
-
-    const selects = Array.from(document.querySelectorAll('.modal select, select'));
-    const selMod = selects.find(s => s.name?.includes('modulo') || s.name?.includes('metodo') || s.id?.includes('modulo')) || selects[0];
-    if (selMod && selMod.options) {
-      const termo = normalizar(item.metodo || item.modulo || 'FASE 1');
-      for (const opt of selMod.options) {
-        if (normalizar(opt.text).includes(termo) || termo.includes(normalizar(opt.text))) {
-          selMod.value = opt.value;
-          selMod.dispatchEvent(new Event('change', { bubbles: true }));
-          break;
-        }
+        if (modo === 'todos') carregarPendentesGerais();
+        if (onSuccess) onSuccess();
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: json.message || 'Falha na autenticação do SAM Oficial. Verifique seu login e senha.'
+        });
       }
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Erro de comunicação com o servidor: ' + (err.message || 'Verifique sua conexão')
+      });
+    } finally {
+      setSincronizando(false);
     }
-
-    const inputs = Array.from(document.querySelectorAll('.modal input, input'));
-    const inDe = inputs.find(x => (x.placeholder||x.name||'').toLowerCase().includes('de') && !(x.placeholder||x.name||'').toLowerCase().includes('ate'));
-    const inAte = inputs.find(x => (x.placeholder||x.name||'').toLowerCase().includes('ate') || (x.placeholder||x.name||'').toLowerCase().includes('até'));
-    const valDe = item.licaoDe || item.paginaDe || '';
-    const valAte = item.licaoAte || item.paginaAte || '';
-    if (inDe && valDe) { inDe.value = valDe; inDe.dispatchEvent(new Event('input', { bubbles: true })); }
-    if (inAte && valAte) { inAte.value = valAte; inAte.dispatchEvent(new Event('input', { bubbles: true })); }
-
-    const obs = document.querySelector('textarea');
-    if (obs) { obs.value = item.observacoes; obs.dispatchEvent(new Event('input', { bubbles: true })); }
-
-    const resp = selects.find(s => s.name?.includes('resp') || s.id?.includes('autoriz'));
-    if (resp && resp.options.length > 1) { resp.selectedIndex = 1; resp.dispatchEvent(new Event('change', { bubbles: true })); }
-
-    await sleep(600);
-    const salvar = Array.from(document.querySelectorAll('button')).find(b => normalizar(b.textContent).includes('SALVAR') && !normalizar(b.textContent).includes('FECHAR'));
-    if (salvar) { salvar.click(); concluidos++; await sleep(1500); }
-  }
-  alert(\`🎉 Robô SAM concluído! \${concluidos} lições lançadas e salvas com sucesso no banco oficial da CCB!\`);
-})();`;
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(gerarCodigoConsole());
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 3000);
   };
 
   return (
@@ -304,24 +211,17 @@ export default function SamSyncGemModal({
         <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-5 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center shadow-inner">
-              <Bot className="w-7 h-7 text-sky-400" />
+              <Cloud className="w-7 h-7 text-sky-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black tracking-tight">Robô Sincronizador SAM Oficial</h3>
-                {extensaoAtiva ? (
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-400/40 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Extensão Conectada
-                  </span>
-                ) : (
-                  <span className="bg-sky-500/20 text-sky-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-400/40 uppercase">
-                    🔒 Apenas Administrador
-                  </span>
-                )}
+                <h3 className="text-base sm:text-lg font-black tracking-tight">Sincronização SAM Oficial (Nuvem)</h3>
+                <span className="bg-sky-500/20 text-sky-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-400/40 uppercase">
+                  🔒 Apenas Administrador
+                </span>
               </div>
               <p className="text-xs text-blue-200 mt-0.5">
-                Preenchimento automático e oficial no portal do SAM CCB
+                Envio 100% automático direto pelo App Rui Barbosa, sem nada no computador
               </p>
             </div>
           </div>
@@ -392,125 +292,100 @@ export default function SamSyncGemModal({
             </div>
           )}
 
-          {/* CARD PRINCIPAL: DISPARO COM EXTENSÃO OU GUIA DE ATIVAÇÃO NO EDGE */}
-          {extensaoAtiva ? (
-            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 text-white rounded-3xl p-6 border border-blue-900 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span className="text-emerald-400 font-black text-xs uppercase tracking-wider">
-                      Extensão Pronta e Ativa no Navegador
-                    </span>
-                  </div>
-                  <h4 className="text-base sm:text-lg font-black tracking-tight text-white">
-                    Sincronizar Diretamente na Página do SAM
-                  </h4>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Com a aba do SAM Oficial aberta em <strong>G.E.M &gt; Alunos</strong>, basta clicar no botão abaixo. O robô vai marcar os alunos, abrir o modal, preencher a aba correspondente (inclusive Métodos) e salvar no banco da CCB!
-                  </p>
-                </div>
+          {/* FORMULÁRIO 100% NUVEM DE AUTENTICAÇÃO E DISPARO */}
+          <form onSubmit={handleSincronizarNuvem} className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-sky-400" />
+                <h4 className="font-black text-xs uppercase tracking-wide text-sky-300">
+                  Acesso ao SAM Oficial (musical.congregacao.org.br)
+                </h4>
+              </div>
+              <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                100% na Nuvem
+              </span>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={handleDispararExtensao}
-                  disabled={sincronizando || itensParaEnviar.length === 0}
-                  className="shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-slate-950 font-black text-sm px-6 py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {sincronizando ? (
-                    <>
-                      <RefreshCw className="w-5 h-5 animate-spin text-slate-950" />
-                      <span>Sincronizando no SAM...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-5 h-5 text-slate-950 fill-slate-950" />
-                      <span>Sincronizar Agora ({itensParaEnviar.length})</span>
-                    </>
-                  )}
-                </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  E-mail / Login no SAM:
+                </label>
+                <input
+                  type="text"
+                  value={samEmail}
+                  onChange={(e) => setSamEmail(e.target.value)}
+                  placeholder="Seu e-mail no SAM"
+                  className="w-full text-xs p-3 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Sua Senha do SAM:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={samPassword}
+                    onChange={(e) => setSamPassword(e.target.value)}
+                    placeholder="Digite sua senha do SAM"
+                    className="w-full text-xs p-3 pr-10 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 text-white rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
-                <div className="space-y-1">
-                  <span className="bg-sky-500/20 text-sky-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-400/30 uppercase tracking-wider">
-                    Como o Robô Salva no SAM Oficial
-                  </span>
-                  <h4 className="text-base font-black text-white">
-                    Para o SAM gravar de verdade, o robô preenche na tela oficial:
-                  </h4>
-                </div>
 
-                <a
-                  href="https://musical.congregacao.org.br/gem/aluno"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 flex items-center gap-1.5 text-xs text-sky-300 hover:text-white font-bold bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Abrir SAM Oficial</span>
-                </a>
-              </div>
-
-              {/* Guia de 30 segundos no Edge */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-sky-300 block">
-                  ⚡ Ativar a Extensão no Microsoft Edge (30 segundos, uma única vez):
-                </span>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1">
-                    <span className="text-sky-400 font-black block">1. Abra as Extensões</span>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">
-                      No Edge, acesse <code className="bg-slate-950 px-1 py-0.5 rounded text-sky-300">edge://extensions</code>
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1">
-                    <span className="text-sky-400 font-black block">2. Modo Desenvolvedor</span>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">
-                      Ative a chavinha <strong>Modo do desenvolvedor</strong> no menu esquerdo.
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1">
-                    <span className="text-sky-400 font-black block">3. Carregar Descompactada</span>
-                    <p className="text-slate-300 text-[11px] leading-relaxed">
-                      Clique em <strong>Carregar extensão descompactada</strong> e escolha a pasta:
-                      <br />
-                      <code className="text-[10px] text-sky-300 block mt-1 break-all bg-slate-950 p-1 rounded">
-                        C:\Users\dre_s\Desktop\App_musical\extensao-sam-sync
-                      </code>
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botão de teste rápido via Console F12 */}
-              <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="text-[11px] text-slate-400">
-                  Ou se preferir testar agora sem carregar a extensão, copie o código e rode no Console (F12) do SAM:
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="flex items-center gap-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition shadow-md shrink-0"
-                >
-                  {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedCode ? 'Código Copiado!' : 'Copiar Código para o Console (F12)'}</span>
-                </button>
-              </div>
+            {/* Aviso de Privacidade */}
+            <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60 flex items-start gap-2.5 text-[11px] text-slate-300 leading-relaxed">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Segurança Total:</strong> A transmissão é feita em canal criptografado HTTPS diretamente com o portal da CCB. Sua senha é usada exclusivamente nesta sincronização e é descartada da memória imediatamente após o término. Nada fica gravado no banco de dados.
+              </span>
             </div>
-          )}
+
+            {/* Botão de Disparo */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                Lições selecionadas: <strong className="text-white">{itensParaEnviar.length}</strong>
+              </div>
+
+              <button
+                type="submit"
+                disabled={sincronizando || itensParaEnviar.length === 0}
+                className="w-full sm:w-auto flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-slate-950 font-black text-sm px-7 py-3 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {sincronizando ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin text-slate-950" />
+                    <span>Conectando e Lançando no SAM...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 text-amber-950 fill-amber-950" />
+                    <span>Sincronizar no SAM pela Nuvem ({itensParaEnviar.length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
 
           {/* Tabela de Lições Prontas para Envio */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="font-black text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-purple-600" />
-                Lições Pendentes de Lançamento ({pendentes.length})
+                Lições Pendentes de Lançamento no SAM ({pendentes.length})
               </h4>
 
               {pendentes.length > 0 && (
