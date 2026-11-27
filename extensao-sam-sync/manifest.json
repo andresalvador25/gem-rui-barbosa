@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Robô SAM CCB - Vila Rui Barbosa",
+  "version": "1.0.0",
+  "description": "Sincronizador automático e direto entre o App GEM Vila Rui Barbosa e o Sistema Oficial de Administração Musical (SAM) da CCB.",
+  "permissions": [
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://musical.congregacao.org.br/*",
+    "*://gem-rui-barbosa.vercel.app/*",
+    "http://localhost:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://gem-rui-barbosa.vercel.app/*",
+        "http://localhost:*/*"
+      ],
+      "js": ["content-gem.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://musical.congregacao.org.br/*"
+      ],
+      "js": ["content-sam.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Robô SAM CCB - Vila Rui Barbosa"
+  }
+}
