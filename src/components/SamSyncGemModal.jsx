@@ -17,7 +17,8 @@ import {
   Check,
   ChevronDown,
   Sparkles,
-  Download,
+  Bookmark,
+  Star,
   HelpCircle
 } from 'lucide-react';
 
@@ -32,14 +33,13 @@ export default function SamSyncGemModal({
   const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [copied, setCopied] = useState(false);
+  const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // Estados da Sincronização Automática via Extensão
+  // Estados da Sincronização via Extensão (Opcional)
   const [extensaoAtiva, setExtensaoAtiva] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [mostrarGuiaExtensao, setMostrarGuiaExtensao] = useState(false);
-  const [mostrarModoManual, setMostrarModoManual] = useState(false);
 
   // Carregar lista de pendentes gerais
   const carregarPendentesGerais = async () => {
@@ -84,7 +84,7 @@ export default function SamSyncGemModal({
     setLoading(false);
   };
 
-  // Detecção da Extensão Robô SAM
+  // Detecção da Extensão Robô SAM (se instalada)
   useEffect(() => {
     const checarExtensao = () => {
       const ativo = 
@@ -116,23 +116,19 @@ export default function SamSyncGemModal({
         const resultado = event.data.resultado || {};
         const idsConcluidos = resultado.ids || Array.from(selectedIds);
 
-        // Marca automaticamente como sincronizado no banco de dados!
         try {
           await fetch('/api/gem/sync/marcar-sincronizado', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids: idsConcluidos })
           });
-        } catch (e) {
-          console.warn('Erro ao marcar sincronizado no servidor');
-        }
+        } catch (e) {}
 
         setStatusMessage({
           type: 'success',
-          text: `🎉 Sincronização 100% Concluída com Sucesso! ${resultado.concluidos || idsConcluidos.length} lição(ões) lançada(s) no SAM Oficial sem nenhuma intervenção manual.`
+          text: `🎉 Sincronização 100% Concluída com Sucesso! ${resultado.concluidos || idsConcluidos.length} lição(ões) lançada(s) no SAM Oficial automaticamente.`
         });
 
-        // Recarrega os dados para limpar a fila
         if (modo === 'todos') carregarPendentesGerais();
         if (onSuccess) onSuccess();
       }
@@ -158,7 +154,7 @@ export default function SamSyncGemModal({
   useEffect(() => {
     if (!isOpen) return;
     setStatusMessage(null);
-    setCopied(false);
+    setCopiedBookmarklet(false);
     setSincronizando(false);
 
     if (modo === 'todos') {
@@ -195,7 +191,6 @@ export default function SamSyncGemModal({
 
   const itensParaEnviar = pendentes.filter(p => selectedIds.has(p.id));
 
-  // Formatar payload limpo para envio ao robô
   const prepararPayload = () => {
     return itensParaEnviar.map(item => ({
       id: item.id,
@@ -211,110 +206,28 @@ export default function SamSyncGemModal({
     }));
   };
 
-  // DISPARO 100% AUTOMÁTICO (Zero Copiar/Colar)
+  // Disparo via Extensão (se instalada)
   const handleSincronizarAutomatico = () => {
     if (itensParaEnviar.length === 0) return;
-
     const payload = prepararPayload();
     setSincronizando(true);
     setStatusMessage({
       type: 'info',
       text: 'Enviando comando para o SAM Oficial... Aguarde.'
     });
-
-    // Envia o comando para o Content Script da Extensão
     window.postMessage({
       type: 'APP_GEM_START_SYNC',
       payload: payload
     }, '*');
   };
 
-  // Gerar o Script de Automação Fallback
-  const gerarCodigoRobo = () => {
-    const payload = prepararPayload();
-    return `/**
- * ROBÔ AUTOMATIZADOR DE LANÇAMENTO DE LIÇÕES - SAM CCB
- * Vila Rui Barbosa (Jundiaí - SP) • André Salvador
- */
-(async function executarRoboSam() {
-  const licoes = ${JSON.stringify(payload, null, 2)};
-  console.log('🤖 Iniciando robô SAM...', licoes);
+  // Código do Bookmarklet (Botão dos Favoritos - ZERO INSTALAÇÃO)
+  const bookmarkletCode = `javascript:(async function(){const u='https://gem-rui-barbosa.vercel.app';let p=document.getElementById('robo-sam-painel');if(!p){p=document.createElement('div');p.id='robo-sam-painel';p.style='position:fixed;top:16px;right:16px;z-index:9999999;background:#0f172a;color:#f8fafc;padding:16px;border-radius:14px;box-shadow:0 20px 25px rgba(0,0,0,0.5);font-family:sans-serif;font-size:13px;width:340px;border:2px solid #38bdf8;';document.body.appendChild(p);}function s(m,sub=''){p.innerHTML='<div style="font-weight:800;color:#38bdf8;margin-bottom:6px;">🤖 Robô SAM Rui Barbosa</div><div style="font-size:12px;color:#f1f5f9;margin-bottom:4px;">'+m+'</div>'+(sub?'<div style="font-size:11px;color:#94a3b8;">'+sub+'</div>':'');}s('Conectando ao App Rui Barbosa...','Buscando lições pendentes');try{const r=await fetch(u+'/api/gem/sync/pendentes');const d=await r.json();const l=d.pendentes||[];if(l.length===0){s('Tudo em dia!','Nenhuma lição pendente.');setTimeout(()=>p.remove(),4000);return;}s('Iniciando lançamentos...',l.length+' lições para lançar');const sleep=ms=>new Promise(res=>setTimeout(res,ms));const n=t=>(t||'').toString().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().trim();let c=0,ids=[];for(let i=0;i<l.length;i++){const item=l[i];s('Lançando ('+(i+1)+'/'+l.length+'): '+(item.alunoNome||''),(item.tipo||'MTS')+' - '+(item.faseDe||item.modulo||'Fase 1'));const rows=Array.from(document.querySelectorAll('table tbody tr'));const tr=rows.find(x=>n(x.innerText).includes(n(item.alunoNome)));if(!tr)continue;document.querySelectorAll('table tbody tr input[type="checkbox"]').forEach(cb=>{if(cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change',{bubbles:true}));}});const cb=tr.querySelector('input[type="checkbox"]');if(cb){cb.checked=true;cb.dispatchEvent(new Event('change',{bubbles:true}));}await sleep(350);const btnAdd=Array.from(document.querySelectorAll('button, a')).find(el=>n(el.textContent).includes('ADICIONAR LICOES'));if(!btnAdd)continue;btnAdd.click();await sleep(1000);const abas=Array.from(document.querySelectorAll('.nav-tabs a, ul.nav a, a[data-toggle="tab"], .modal a'));const aba=abas.find(a=>n(a.textContent)===n(item.tipo||'MTS'));if(aba){aba.click();await sleep(400);}const inputs=Array.from(document.querySelectorAll('.modal input, input'));const inData=inputs.find(x=>(x.name||x.id||'').toLowerCase().includes('data')||x.placeholder?.includes('data'))||document.querySelector('input[type="text"][value*="/"]');if(inData){inData.value=item.data&&item.data.includes('-')?item.data.split('-').reverse().join('/'):(item.data||new Date().toLocaleDateString('pt-BR'));inData.dispatchEvent(new Event('input',{bubbles:true}));}const selects=Array.from(document.querySelectorAll('.modal select, select'));const selMod=selects.find(x=>(x.name||x.id||'').toLowerCase().includes('modulo')||(x.name||x.id||'').toLowerCase().includes('fase'))||selects[0];if(selMod&&selMod.options){const termo=n(item.modulo||item.faseDe||'FASE 1');for(const opt of selMod.options){if(n(opt.text).includes(termo)){selMod.value=opt.value;selMod.dispatchEvent(new Event('change',{bubbles:true}));break;}}}const inDe=inputs.find(x=>(x.placeholder||x.name||'').toLowerCase().includes('de')&&!(x.placeholder||x.name||'').toLowerCase().includes('ate'));const inAte=inputs.find(x=>(x.placeholder||x.name||'').toLowerCase().includes('ate')||(x.placeholder||x.name||'').toLowerCase().includes('até'));if(inDe&&item.licaoDe){inDe.value=item.licaoDe;inDe.dispatchEvent(new Event('input',{bubbles:true}));}if(inAte&&item.licaoAte){inAte.value=item.licaoAte;inAte.dispatchEvent(new Event('input',{bubbles:true}));}const txtObs=document.querySelector('.modal textarea, textarea');if(txtObs){txtObs.value=item.observacoes||'Aula realizada no GEM Vila Rui Barbosa';txtObs.dispatchEvent(new Event('input',{bubbles:true}));}const selResp=selects.find(x=>(x.name||x.id||'').toLowerCase().includes('resp')||(x.name||x.id||'').toLowerCase().includes('autoriz'));if(selResp&&selResp.options.length>1){if(!selResp.value||selResp.value==='0')selResp.selectedIndex=1;selResp.dispatchEvent(new Event('change',{bubbles:true}));}await sleep(600);const btnSalvar=Array.from(document.querySelectorAll('.modal button, button')).find(b=>n(b.textContent).includes('SALVAR')&&!n(b.textContent).includes('FECHAR'));if(btnSalvar){btnSalvar.click();c++;if(item.id)ids.push(item.id);await sleep(1500);}}if(ids.length>0){s('Finalizando...','Atualizando App Rui Barbosa');await fetch(u+'/api/gem/sync/marcar-sincronizado',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});}s('🎉 Concluído com Sucesso!',c+' lições lançadas e App atualizado!');setTimeout(()=>p.remove(),6000);}catch(err){console.error(err);s('Erro na sincronização',err.message);}})();`;
 
-  let painel = document.getElementById('robo-sam-painel');
-  if (!painel) {
-    painel = document.createElement('div');
-    painel.id = 'robo-sam-painel';
-    painel.style = 'position:fixed;top:20px;right:20px;z-index:999999;background:#0f172a;color:#f8fafc;padding:16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.5);font-family:sans-serif;font-size:13px;width:340px;border:2px solid #38bdf8;';
-    document.body.appendChild(painel);
-  }
-
-  function atualizarStatus(msg, submsg = '') {
-    painel.innerHTML = '<div style="font-weight:bold;color:#38bdf8;margin-bottom:6px;">🤖 Sincronizador SAM Rui Barbosa</div>' +
-      '<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;">' + msg + '</div>' +
-      (submsg ? '<div style="font-size:11px;color:#94a3b8;">' + submsg + '</div>' : '');
-  }
-
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  let concluidos = 0;
-
-  for (let i = 0; i < licoes.length; i++) {
-    const item = licoes[i];
-    atualizarStatus(\`Processando (\${i + 1}/\${licoes.length}): \${item.alunoNome}\`, \`\${item.tipo} - \${item.modulo}\`);
-
-    const linhas = Array.from(document.querySelectorAll('table tbody tr'));
-    const linha = linhas.find(tr => tr.innerText.toUpperCase().includes(item.alunoNome.toUpperCase()));
-    if (!linha) continue;
-
-    document.querySelectorAll('table tbody tr input[type="checkbox"]').forEach(cb => cb.checked = false);
-    const cb = linha.querySelector('input[type="checkbox"]');
-    if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
-    await sleep(400);
-
-    const btnAdd = Array.from(document.querySelectorAll('button, a')).find(el => el.textContent.includes('Adicionar Lições'));
-    if (!btnAdd) continue;
-    btnAdd.click();
-    await sleep(1000);
-
-    const abas = Array.from(document.querySelectorAll('.nav-tabs a, ul.nav a, a[data-toggle="tab"]'));
-    const aba = abas.find(a => a.textContent.trim().toUpperCase() === (item.tipo || 'MTS').toUpperCase());
-    if (aba) { aba.click(); await sleep(400); }
-
-    const inputData = document.querySelector('input[name*="data"], input[id*="data"]');
-    if (inputData) { inputData.value = item.data; inputData.dispatchEvent(new Event('input', { bubbles: true })); }
-
-    const selectModulo = document.querySelector('select[name*="modulo"], select[id*="modulo"]');
-    if (selectModulo) {
-      for (const opt of selectModulo.options) {
-        if (opt.text.toUpperCase().includes((item.modulo || '').toUpperCase())) {
-          selectModulo.value = opt.value;
-          selectModulo.dispatchEvent(new Event('change', { bubbles: true }));
-          break;
-        }
-      }
-    }
-
-    const textareaObs = document.querySelector('textarea');
-    if (textareaObs) { textareaObs.value = item.observacoes; textareaObs.dispatchEvent(new Event('input', { bubbles: true })); }
-
-    const selectAutorizado = Array.from(document.querySelectorAll('select')).find(s => (s.name || '').includes('resp') || (s.name || '').includes('autoriz'));
-    if (selectAutorizado && selectAutorizado.options.length > 1) {
-      selectAutorizado.selectedIndex = 1;
-      selectAutorizado.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    await sleep(600);
-    const btnSalvar = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('Salvar') && !btn.textContent.includes('Fechar'));
-    if (btnSalvar) { btnSalvar.click(); concluidos++; await sleep(1500); }
-  }
-
-  atualizarStatus('🎉 Sincronização Concluída!', \`Sucesso: \${concluidos} lançamentos salvos no SAM!\`);
-})();`;
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(gerarCodigoRobo());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+  const handleCopyBookmarklet = () => {
+    navigator.clipboard.writeText(bookmarkletCode);
+    setCopiedBookmarklet(true);
+    setTimeout(() => setCopiedBookmarklet(false), 3000);
   };
 
   return (
@@ -330,19 +243,12 @@ export default function SamSyncGemModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black tracking-tight">Sincronizador Automático SAM CCB</h3>
-                {extensaoAtiva ? (
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-400/40 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Extensão Conectada
-                  </span>
-                ) : (
-                  <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                    Aguardando Extensão
-                  </span>
-                )}
+                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-400/40">
+                  Sem Trabalho Manual
+                </span>
               </div>
               <p className="text-xs text-blue-200 mt-0.5">
-                Envio direto e automatizado de lições entre os dois portais
+                Envio direto e automático de lições para o sistema oficial da CCB
               </p>
             </div>
           </div>
@@ -409,128 +315,117 @@ export default function SamSyncGemModal({
               ) : (
                 <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               )}
-              <div className="space-y-0.5">
-                <span className="block leading-relaxed">{statusMessage.text}</span>
-              </div>
+              <span className="leading-relaxed">{statusMessage.text}</span>
             </div>
           )}
 
-          {/* PAINEL DE DISPARO 100% AUTOMÁTICO */}
-          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 text-white rounded-3xl p-6 border border-blue-900/60 shadow-xl relative overflow-hidden">
-            <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-xl">
-                <div className="flex items-center gap-2">
-                  <span className="bg-sky-500/20 text-sky-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-400/30 uppercase tracking-wider">
-                    Sincronização 1-Clique
-                  </span>
-                  <span className="text-xs text-slate-300">Com os dois apps abertos</span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  Disparar Robô Automático no SAM Oficial
-                </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Basta estar logado no SAM Oficial (<a href="https://musical.congregacao.org.br/gem/aluno" target="_blank" rel="noreferrer" className="text-sky-300 underline font-semibold">musical.congregacao.org.br</a>). Ao clicar no botão abaixo, o robô faz todos os lançamentos sozinho e atualiza o App automaticamente.
-                </p>
+          {/* OPÇÃO 1: BOTÃO DOS FAVORITOS (ZERO INSTALAÇÃO, SEM EXTENSÃO) */}
+          <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-slate-50 border-2 border-amber-400/80 rounded-3xl p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  ⭐ Mais Fácil • Sem Instalar Nada
+                </span>
+                <span className="text-xs font-bold text-slate-700">Botão dos Favoritos (1 Clique)</span>
               </div>
 
-              <div className="shrink-0 flex flex-col items-center md:items-end gap-2">
+              <button
+                type="button"
+                onClick={handleCopyBookmarklet}
+                className="text-xs font-bold text-amber-900 hover:text-amber-700 underline flex items-center gap-1 self-start sm:self-auto"
+              >
+                {copiedBookmarklet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedBookmarklet ? 'Link copiado!' : 'Copiar link do favorito'}</span>
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-700 leading-relaxed">
+              Você <strong>NÃO precisa instalar nenhuma extensão</strong>! Basta arrastar o botão amarelo abaixo para a sua barra de favoritos do navegador:
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+              <a
+                href={bookmarkletCode}
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert('💡 Dica: Arraste este botão diretamente para a barra de favoritos do seu navegador!\n\nSe a barra de favoritos não estiver visível, pressione Ctrl+Shift+B no teclado para exibir.');
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-2xl shadow-md border border-amber-600/20 cursor-grab active:cursor-grabbing select-none transition active:scale-95 text-center"
+                title="Arraste este botão para sua barra de favoritos do navegador"
+              >
+                <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
+                <span>🤖 Sincronizar SAM (Arraste para Favoritos)</span>
+              </a>
+
+              <div className="text-[11px] text-slate-500 text-center sm:text-left">
+                No SAM oficial, com seu login aberto, basta dar <strong>1 clique</strong> nesse favorito na sua barra superior e ele faz tudo sozinho!
+              </div>
+            </div>
+          </div>
+
+          {/* OPÇÃO 2: EXTENSÃO OU DISPARO DIRETO DO APP */}
+          <div className="bg-slate-900 text-white rounded-3xl p-5 space-y-4 border border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-sky-400" />
+                <span className="font-black text-xs uppercase tracking-wide text-sky-300">
+                  Opção Alternativa: Disparo Direto de Dentro do App
+                </span>
+                {extensaoAtiva && (
+                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-400/30">
+                    Extensão Ativa
+                  </span>
+                )}
+              </div>
+
+              {extensaoAtiva ? (
                 <button
                   type="button"
                   onClick={handleSincronizarAutomatico}
                   disabled={sincronizando || itensParaEnviar.length === 0}
-                  className="w-full md:w-auto flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-slate-950 font-black text-sm px-7 py-3.5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-md transition active:scale-95 disabled:opacity-50"
                 >
                   {sincronizando ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin text-slate-950" />
-                      <span>Sincronizando no SAM...</span>
+                      <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>Sincronizando...</span>
                     </>
                   ) : (
                     <>
-                      <Zap className="w-5 h-5 text-amber-950 fill-amber-950" />
-                      <span>Sincronizar Agora ({itensParaEnviar.length})</span>
+                      <Zap className="w-4 h-4 fill-slate-950" />
+                      <span>Disparar do App ({itensParaEnviar.length})</span>
                     </>
                   )}
                 </button>
-
-                <span className="text-[11px] text-slate-400">
-                  {extensaoAtiva ? '✅ Pronto para disparo direto' : '⚠️ Requer a extensão ativa no Chrome/Edge'}
-                </span>
-              </div>
-            </div>
-
-            {/* Banner de Ajuda caso a extensão ainda não esteja carregada */}
-            {!extensaoAtiva && (
-              <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs bg-slate-800/40 p-3 rounded-xl">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Ainda não ativou a extensão no seu navegador?</span>
-                </div>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setMostrarGuiaExtensao(!mostrarGuiaExtensao)}
-                  className="text-sky-300 hover:text-sky-200 font-bold underline shrink-0"
+                  className="text-xs text-sky-300 hover:text-sky-200 underline font-bold"
                 >
-                  {mostrarGuiaExtensao ? 'Ocultar instruções' : 'Ver como ativar em 30 segundos (única vez)'}
+                  {mostrarGuiaExtensao ? 'Ocultar instruções da extensão' : 'Deseja usar a extensão? Ver como ativar'}
                 </button>
+              )}
+            </div>
+
+            {mostrarGuiaExtensao && !extensaoAtiva && (
+              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 space-y-2 text-xs">
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  A extensão só é necessária caso você queira clicar no botão <strong>dentro deste App</strong> e ele comandar a outra aba do SAM. Se preferir não mexer com extensão, use a <strong>Opção 1 (Botão dos Favoritos)</strong> acima, que faz a mesma coisa com zero instalação!
+                </p>
+                <p className="text-slate-400 text-[10px]">
+                  Pasta da extensão no seu computador: <code className="bg-slate-950 px-1 py-0.5 rounded text-sky-300">C:\Users\dre_s\Desktop\App_musical\extensao-sam-sync</code>
+                </p>
               </div>
             )}
           </div>
-
-          {/* GUIA DE INSTALAÇÃO DA EXTENSÃO (Expansível ou se inativa) */}
-          {(!extensaoAtiva || mostrarGuiaExtensao) && (
-            <div className="bg-amber-50/70 border border-amber-300 rounded-2xl p-5 space-y-3 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-black text-amber-950 text-xs sm:text-sm">
-                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Como Ativar a Extensão no seu Chrome ou Edge (Passo Único):</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMostrarGuiaExtensao(false)}
-                  className="text-amber-800 text-xs font-bold hover:underline"
-                >
-                  Fechar
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs space-y-1">
-                  <span className="text-amber-700 font-black block">1. Abra as Extensões</span>
-                  <p className="text-slate-600 text-[11px] leading-relaxed">
-                    No seu navegador, digite <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">chrome://extensions</code> (ou <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">edge://extensions</code>).
-                  </p>
-                </div>
-
-                <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs space-y-1">
-                  <span className="text-amber-700 font-black block">2. Modo Desenvolvedor</span>
-                  <p className="text-slate-600 text-[11px] leading-relaxed">
-                    No canto superior direito, ative a chavinha <strong>"Modo do desenvolvedor"</strong>.
-                  </p>
-                </div>
-
-                <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs space-y-1">
-                  <span className="text-amber-700 font-black block">3. Carregar sem Compactação</span>
-                  <p className="text-slate-600 text-[11px] leading-relaxed">
-                    Clique em <strong>"Carregar sem compactação"</strong> e selecione a pasta:
-                    <br />
-                    <span className="font-mono text-[10px] text-blue-700 block mt-1 break-all bg-slate-100 p-1 rounded">
-                      C:\Users\dre_s\Desktop\App_musical\extensao-sam-sync
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Tabela de Lições Prontas para Envio */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="font-black text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-purple-600" />
-                Lições Selecionadas para o Lançamento ({pendentes.length})
+                Lições Pendentes de Lançamento no SAM ({pendentes.length})
               </h4>
 
               {pendentes.length > 0 && (
@@ -626,34 +521,6 @@ export default function SamSyncGemModal({
                     })}
                   </tbody>
                 </table>
-              </div>
-            )}
-          </div>
-
-          {/* Opção Alternativa: Copiar Script Manual (Expansível) */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setMostrarModoManual(!mostrarModoManual)}
-              className="w-full bg-slate-50 p-3 px-4 flex items-center justify-between text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
-            >
-              <span>Opção Alternativa: Copiar Script Manual (Console F12)</span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mostrarModoManual ? 'rotate-180' : ''}`} />
-            </button>
-
-            {mostrarModoManual && (
-              <div className="p-4 bg-white border-t border-slate-200 space-y-3">
-                <p className="text-xs text-slate-600">
-                  Caso prefira o método manual sem extensão, você pode copiar o código do robô abaixo e colar no Console (F12) da aba do SAM.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition"
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  <span>{copied ? 'Código Copiado!' : 'Copiar Código do Robô'}</span>
-                </button>
               </div>
             )}
           </div>
